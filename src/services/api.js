@@ -217,6 +217,7 @@ class ApiService {
     });
   }
 
+<<<<<<< HEAD
   // Dashboard endpoints
   async getDashboard() {
     return this.request('/dashboard', {
@@ -224,6 +225,8 @@ class ApiService {
     });
   }
 
+=======
+>>>>>>> 271e2c581aded554bc7784149f8080afe8826b3f
   // MT5 Account endpoints
   async getMT5Accounts() {
     return this.request('/mt5-accounts', {
@@ -231,11 +234,69 @@ class ApiService {
     });
   }
 
+<<<<<<< HEAD
   async getMT5Trades() {
     return this.request('/mt5-accounts/trades', {
       method: 'GET',
     });
   }
+=======
+  async getMT5Account(accountId) {
+    return this.request(`/mt5-accounts/${accountId}`, {
+      method: 'GET',
+    });
+  }
+
+  async connectMT5Account(accountData) {
+    return this.request('/mt5-accounts/connect', {
+      method: 'POST',
+      body: JSON.stringify({
+        account: accountData.account,
+        password: accountData.password,
+        server: accountData.server,
+        account_name: accountData.accountName || null,
+      }),
+    });
+  }
+
+  async refreshMT5Account(accountId) {
+    return this.request(`/mt5-accounts/${accountId}/refresh`, {
+      method: 'POST',
+    });
+  }
+
+  // Symbol/Market Watch endpoints
+  async getSymbols() {
+    return this.request('/symbols', {
+      method: 'GET',
+    });
+  }
+
+  async getSymbolInfo(symbolName) {
+    return this.request(`/symbols/${symbolName}`, {
+      method: 'GET',
+    });
+  }
+
+  async getSymbolTick(symbolName) {
+    return this.request(`/symbols/${symbolName}/tick`, {
+      method: 'GET',
+    });
+  }
+
+  async getMultipleSymbolTicks(symbols) {
+    // Fetch ticks for multiple symbols in parallel
+    const promises = symbols.map(symbol => this.getSymbolTick(symbol));
+    const results = await Promise.allSettled(promises);
+
+    return results.map((result, index) => ({
+      symbol: symbols[index],
+      success: result.status === 'fulfilled' && result.value?.success,
+      tick: result.status === 'fulfilled' ? result.value?.tick : null,
+      error: result.status === 'rejected' ? result.reason?.message : null,
+    }));
+  }
+>>>>>>> 271e2c581aded554bc7784149f8080afe8826b3f
 }
 
 export const api = new ApiService();

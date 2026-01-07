@@ -15,8 +15,14 @@ import {
   Loader2,
   RefreshCw,
   TrendingUp,
+<<<<<<< HEAD
   Wifi,
   WifiOff,
+=======
+  TrendingDown,
+  Activity,
+  Clock,
+>>>>>>> 271e2c581aded554bc7784149f8080afe8826b3f
 } from 'lucide-react';
 import api from '../services/api';
 import MarketWatch from '../components/MarketWatch';
@@ -52,7 +58,11 @@ const Dashboard = ({ onLogout }) => {
 
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+<<<<<<< HEAD
     { id: 'market-watch', label: 'Market Watch', icon: TrendingUp },
+=======
+    { id: 'marketwatch', label: 'Market Watch', icon: Activity },
+>>>>>>> 271e2c581aded554bc7784149f8080afe8826b3f
     { id: 'historical', label: 'Data', icon: History },
     { id: 'wallet', label: 'Wallet', icon: Wallet },
     { id: 'transactions', label: 'Transactions', icon: ArrowLeftRight },
@@ -64,8 +74,13 @@ const Dashboard = ({ onLogout }) => {
     switch (activeTab) {
       case 'dashboard':
         return <DashboardContent />;
+<<<<<<< HEAD
       case 'market-watch':
         return <MarketWatch />;
+=======
+      case 'marketwatch':
+        return <MarketWatchContent />;
+>>>>>>> 271e2c581aded554bc7784149f8080afe8826b3f
       case 'historical':
         return <HistoricalDataContent />;
       case 'wallet':
@@ -222,6 +237,7 @@ const Dashboard = ({ onLogout }) => {
 };
 
 const DashboardContent = () => {
+<<<<<<< HEAD
   const [dashboardData, setDashboardData] = useState(null);
   const [trades, setTrades] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -268,6 +284,107 @@ const DashboardContent = () => {
 
     return () => clearInterval(interval);
   }, []);
+=======
+  const [accountData, setAccountData] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Fetch MT5 account data
+  const fetchAccountData = async (showRefreshIndicator = false) => {
+    if (showRefreshIndicator) setIsRefreshing(true);
+    else setIsLoading(true);
+    setError('');
+
+    try {
+      const response = await api.getMT5Accounts();
+      if (response.success && response.accounts && response.accounts.length > 0) {
+        // Get the first connected account
+        const account = response.accounts[0];
+        setAccountData(account);
+      } else {
+        setAccountData(null);
+      }
+    } catch (err) {
+      console.error('Failed to fetch MT5 account:', err);
+      setError(err.message || 'Failed to load account data');
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  };
+
+  // Refresh account data from MT5
+  const handleRefresh = async () => {
+    if (!accountData) return;
+    setIsRefreshing(true);
+    try {
+      const response = await api.refreshMT5Account(accountData.id);
+      if (response.success) {
+        setAccountData(response.account);
+      }
+    } catch (err) {
+      console.error('Failed to refresh account:', err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAccountData();
+  }, []);
+
+  // Format currency
+  const formatCurrency = (value, currency = 'USD') => {
+    if (value === null || value === undefined) return '-';
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value);
+  };
+
+  // Calculate margin level percentage
+  const marginLevel = accountData?.margin > 0
+    ? ((accountData.equity / accountData.margin) * 100).toFixed(2)
+    : '∞';
+
+  // Build stats from real data
+  const statsRow1 = accountData ? [
+    { label: 'Balance', value: formatCurrency(accountData.balance, accountData.currency), info: 'Account balance' },
+    { label: 'Equity', value: formatCurrency(accountData.equity, accountData.currency), info: 'Balance + floating P/L' },
+    { label: 'Profit/Loss', value: formatCurrency(accountData.profit, accountData.currency), positive: accountData.profit >= 0 },
+    { label: 'Leverage', value: `1:${accountData.leverage}`, info: 'Account leverage' },
+  ] : [
+    { label: 'Balance', value: '-', info: 'No account connected' },
+    { label: 'Equity', value: '-', info: 'No account connected' },
+    { label: 'Profit/Loss', value: '-', info: 'No account connected' },
+    { label: 'Leverage', value: '-', info: 'No account connected' },
+  ];
+
+  const statsRow2 = accountData ? [
+    { label: 'Margin Used', value: formatCurrency(accountData.margin, accountData.currency), info: 'Used margin' },
+    { label: 'Free Margin', value: formatCurrency(accountData.free_margin, accountData.currency), info: 'Available margin' },
+    { label: 'Margin Level', value: `${marginLevel}%`, positive: parseFloat(marginLevel) > 100, info: 'Equity/Margin %' },
+    { label: 'Currency', value: accountData.currency, info: 'Account currency' },
+  ] : [
+    { label: 'Margin Used', value: '-', info: 'No account connected' },
+    { label: 'Free Margin', value: '-', info: 'No account connected' },
+    { label: 'Margin Level', value: '-', info: 'No account connected' },
+    { label: 'Currency', value: '-', info: 'No account connected' },
+  ];
+
+  // Static transactions for now (can be replaced with real trading history later)
+  const transactions = [
+    { id: 'TXN001', title: 'Payment Received', amount: '+$2,500.00', date: '2024-01-15', status: 'Completed', type: 'income' },
+    { id: 'TXN002', title: 'Subscription Payment', amount: '-$29.99', date: '2024-01-15', status: 'Completed', type: 'expense' },
+    { id: 'TXN003', title: 'Transfer to Savings', amount: '-$500.00', date: '2024-01-14', status: 'Completed', type: 'transfer' },
+    { id: 'TXN004', title: 'Freelance Payment', amount: '+$1,200.00', date: '2024-01-13', status: 'Completed', type: 'income' },
+    { id: 'TXN005', title: 'Utility Bill', amount: '-$156.00', date: '2024-01-12', status: 'Completed', type: 'expense' },
+    { id: 'TXN006', title: 'Client Payment', amount: '+$3,400.00', date: '2024-01-11', status: 'Pending', type: 'income' },
+  ];
+>>>>>>> 271e2c581aded554bc7784149f8080afe8826b3f
 
   const glassStyle = {
     background: 'rgba(255, 255, 255, 0.7)',
@@ -277,6 +394,7 @@ const DashboardContent = () => {
     boxShadow: '0 4px 20px rgba(0, 0, 0, 0.05)',
   };
 
+<<<<<<< HEAD
   const dummyTrades = [
     { ticket: 12345678, symbol: 'EURUSD', type: 0, volume: 0.10, time_setup: Date.now() / 1000 - 86400, profit: 15.50 },
     { ticket: 12345679, symbol: 'GBPUSD', type: 1, volume: 0.05, time_setup: Date.now() / 1000 - 172800, profit: -8.25 },
@@ -290,10 +408,18 @@ const DashboardContent = () => {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="w-8 h-8 text-primary-600 animate-spin" />
+=======
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20">
+        <Loader2 className="animate-spin text-blue-500" size={40} />
+        <p className="mt-4 text-gray-500">Loading account data...</p>
+>>>>>>> 271e2c581aded554bc7784149f8080afe8826b3f
       </div>
     );
   }
 
+<<<<<<< HEAD
   if (error) {
     return (
       <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-xl">
@@ -372,7 +498,38 @@ const DashboardContent = () => {
       <div>
         <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-2">Welcome back!</h1>
         <p className="text-gray-500">Here's your MT5 trading account overview</p>
+=======
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-2">Welcome back!</h1>
+          <p className="text-gray-500">
+            {accountData
+              ? `Connected to ${accountData.account_name || accountData.broker_server} (${accountData.account_number})`
+              : 'No MT5 account connected'}
+          </p>
+        </div>
+        {accountData && (
+          <motion.button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors disabled:opacity-50"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
+            Refresh
+          </motion.button>
+        )}
+>>>>>>> 271e2c581aded554bc7784149f8080afe8826b3f
       </div>
+
+      {error && (
+        <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm">
+          {error}
+        </div>
+      )}
 
       {/* First Row of KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -386,12 +543,16 @@ const DashboardContent = () => {
             style={glassStyle}
           >
             <p className="text-gray-500 text-xs mb-1">{stat.label}</p>
-            <p className="text-gray-900 text-lg font-bold mb-1">{stat.value}</p>
-            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-              stat.positive ? 'text-green-700 bg-green-100' : 'text-red-700 bg-red-100'
+            <p className={`text-lg font-bold mb-1 ${
+              stat.positive !== undefined
+                ? (stat.positive ? 'text-green-600' : 'text-red-600')
+                : 'text-gray-900'
             }`}>
-              {stat.change}
-            </span>
+              {stat.value}
+            </p>
+            {stat.info && (
+              <span className="text-xs text-gray-400">{stat.info}</span>
+            )}
           </motion.div>
         ))}
       </div>
@@ -408,12 +569,16 @@ const DashboardContent = () => {
             style={glassStyle}
           >
             <p className="text-gray-500 text-xs mb-1">{stat.label}</p>
-            <p className="text-gray-900 text-lg font-bold mb-1">{stat.value}</p>
-            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-              stat.positive ? 'text-green-700 bg-green-100' : 'text-red-700 bg-red-100'
+            <p className={`text-lg font-bold mb-1 ${
+              stat.positive !== undefined
+                ? (stat.positive ? 'text-green-600' : 'text-red-600')
+                : 'text-gray-900'
             }`}>
-              {stat.change}
-            </span>
+              {stat.value}
+            </p>
+            {stat.info && (
+              <span className="text-xs text-gray-400">{stat.info}</span>
+            )}
           </motion.div>
         ))}
       </div>
@@ -442,6 +607,7 @@ const DashboardContent = () => {
               </tr>
             </thead>
             <tbody>
+<<<<<<< HEAD
               {trades.length > 0 ? (
                 trades.map((trade, index) => (
                   <tr key={trade.ticket || index} className="border-b border-gray-100/50 last:border-0 hover:bg-white/50 transition-colors">
@@ -456,6 +622,21 @@ const DashboardContent = () => {
                           <ArrowLeftRight size={14} />
                         </div>
                         <span className="text-sm font-medium text-gray-900">{trade.symbol}</span>
+=======
+              {transactions.map((txn) => (
+                <tr key={txn.id} className="border-b border-gray-100/50 last:border-0 hover:bg-white/50 transition-colors">
+                  <td className="py-3 px-4 text-sm text-gray-600 font-mono">{txn.id}</td>
+                  <td className="py-3 px-4">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                        txn.type === 'income'
+                          ? 'bg-green-100 text-green-600'
+                          : txn.type === 'expense'
+                          ? 'bg-red-100 text-red-600'
+                          : 'bg-blue-100 text-blue-600'
+                      }`}>
+                        <ArrowLeftRight size={14} />
+>>>>>>> 271e2c581aded554bc7784149f8080afe8826b3f
                       </div>
                     </td>
                     <td className="py-3 px-4">
@@ -489,6 +670,313 @@ const DashboardContent = () => {
           </table>
         </div>
       </motion.div>
+    </div>
+  );
+};
+
+const MarketWatchContent = () => {
+  const [symbols, setSymbols] = useState([]);
+  const [tickData, setTickData] = useState({});
+  const [previousTickData, setPreviousTickData] = useState({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [lastUpdate, setLastUpdate] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Default watchlist symbols (common forex pairs)
+  const defaultSymbols = [
+    'EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD',
+    'EURGBP', 'EURJPY', 'GBPJPY', 'XAUUSD', 'XAGUSD', 'BTCUSD', 'ETHUSD'
+  ];
+
+  // Fetch available symbols from database
+  const fetchSymbols = async () => {
+    try {
+      const response = await api.getAvailableSymbols();
+      if (response.success && response.symbols) {
+        const symbolNames = response.symbols.map(s => s.symbol);
+        setSymbols(symbolNames.length > 0 ? symbolNames : defaultSymbols);
+      } else {
+        setSymbols(defaultSymbols);
+      }
+    } catch (err) {
+      console.error('Failed to fetch symbols:', err);
+      setSymbols(defaultSymbols);
+    }
+  };
+
+  // Fetch tick data for all symbols
+  const fetchTickData = async (showRefreshIndicator = false) => {
+    if (showRefreshIndicator) setIsRefreshing(true);
+
+    try {
+      const symbolsToFetch = symbols.length > 0 ? symbols : defaultSymbols;
+      const results = await api.getMultipleSymbolTicks(symbolsToFetch);
+
+      // Store previous tick data for comparison (price change animation)
+      setPreviousTickData({ ...tickData });
+
+      const newTickData = {};
+      results.forEach(result => {
+        if (result.success && result.tick) {
+          newTickData[result.symbol] = {
+            ...result.tick,
+            timestamp: result.tick.time ? new Date(result.tick.time * 1000) : new Date(),
+          };
+        }
+      });
+
+      setTickData(prev => ({ ...prev, ...newTickData }));
+      setLastUpdate(new Date());
+      setError('');
+    } catch (err) {
+      console.error('Failed to fetch tick data:', err);
+      setError('Failed to fetch market data');
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  };
+
+  // Initial load
+  useEffect(() => {
+    fetchSymbols();
+  }, []);
+
+  // Fetch tick data when symbols are loaded
+  useEffect(() => {
+    if (symbols.length > 0) {
+      fetchTickData();
+    }
+  }, [symbols]);
+
+  // Auto-refresh every 100ms for live prices
+  useEffect(() => {
+    if (symbols.length === 0) return;
+
+    const interval = setInterval(() => {
+      fetchTickData();
+    }, 100);
+
+    return () => clearInterval(interval);
+  }, [symbols]);
+
+  // Format price based on digits
+  const formatPrice = (price, symbol) => {
+    if (price === null || price === undefined) return '-';
+    // Most forex pairs have 5 digits, JPY pairs have 3, metals/crypto vary
+    const digits = symbol?.includes('JPY') ? 3 : (symbol?.includes('XAU') || symbol?.includes('BTC')) ? 2 : 5;
+    return price.toFixed(digits);
+  };
+
+  // Calculate spread
+  const calculateSpread = (bid, ask, symbol) => {
+    if (!bid || !ask) return '-';
+    const spread = ask - bid;
+    const digits = symbol?.includes('JPY') ? 3 : 5;
+    const pipMultiplier = symbol?.includes('JPY') ? 100 : 10000;
+    return (spread * pipMultiplier).toFixed(1);
+  };
+
+  // Check if market is open (simplified - checks if tick is recent)
+  const isMarketOpen = (tick) => {
+    if (!tick?.timestamp) return false;
+    const now = new Date();
+    const tickTime = new Date(tick.timestamp);
+    const diffMinutes = (now - tickTime) / (1000 * 60);
+    return diffMinutes < 5; // Consider open if tick is within 5 minutes
+  };
+
+  // Get price change direction
+  const getPriceDirection = (symbol, currentPrice) => {
+    const prevTick = previousTickData[symbol];
+    if (!prevTick || !currentPrice) return 'neutral';
+    if (currentPrice > prevTick.bid) return 'up';
+    if (currentPrice < prevTick.bid) return 'down';
+    return 'neutral';
+  };
+
+  // Filter symbols
+  const filteredSymbols = symbols.filter(symbol => {
+    return symbol.toLowerCase().includes(searchQuery.toLowerCase());
+  });
+
+  const glassStyle = {
+    background: 'rgba(255, 255, 255, 0.7)',
+    backdropFilter: 'blur(10px)',
+    WebkitBackdropFilter: 'blur(10px)',
+    border: '1px solid rgba(255, 255, 255, 0.3)',
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.05)',
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20">
+        <Loader2 className="animate-spin text-blue-500" size={40} />
+        <p className="mt-4 text-gray-500">Loading market data...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-2">Market Watch</h1>
+          <p className="text-gray-500 flex items-center gap-2">
+            <Clock size={14} />
+            {lastUpdate ? `Last updated: ${lastUpdate.toLocaleTimeString()}` : 'Loading...'}
+            {isRefreshing && <Loader2 className="animate-spin" size={14} />}
+          </p>
+        </div>
+        <motion.button
+          onClick={() => fetchTickData(true)}
+          disabled={isRefreshing}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors disabled:opacity-50"
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+        >
+          <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
+          Refresh
+        </motion.button>
+      </div>
+
+      {/* Filters */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex flex-col sm:flex-row gap-4 p-4 rounded-2xl"
+        style={glassStyle}
+      >
+        {/* Search */}
+        <div className="relative flex-1">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <input
+            type="text"
+            placeholder="Search symbols..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-gray-200 bg-white/80 text-gray-900 placeholder-gray-400 text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all duration-200"
+          />
+        </div>
+
+        {/* Symbol Count */}
+        <div className="flex items-center text-sm text-gray-500">
+          {filteredSymbols.length} symbols
+        </div>
+      </motion.div>
+
+      {/* Error Message */}
+      {error && (
+        <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm">
+          {error}
+        </div>
+      )}
+
+      {/* Market Watch Table */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="rounded-2xl overflow-hidden"
+        style={glassStyle}
+      >
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-gray-200/50 bg-gray-50/50">
+                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Symbol</th>
+                <th className="text-right py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Bid</th>
+                <th className="text-right py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Ask</th>
+                <th className="text-right py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Spread</th>
+                <th className="text-center py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="text-right py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredSymbols.map((symbol) => {
+                const tick = tickData[symbol];
+                const direction = getPriceDirection(symbol, tick?.bid);
+                const marketOpen = isMarketOpen(tick);
+
+                return (
+                  <motion.tr
+                    key={symbol}
+                    className="border-b border-gray-100/50 last:border-0 hover:bg-white/50 transition-colors"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                  >
+                    {/* Symbol */}
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-gray-900">{symbol}</span>
+                        {direction === 'up' && <TrendingUp size={14} className="text-green-500" />}
+                        {direction === 'down' && <TrendingDown size={14} className="text-red-500" />}
+                      </div>
+                    </td>
+
+                    {/* Bid */}
+                    <td className={`py-3 px-4 text-right font-mono text-sm font-medium transition-colors ${
+                      direction === 'up' ? 'text-green-600 bg-green-50/50' :
+                      direction === 'down' ? 'text-red-600 bg-red-50/50' :
+                      'text-gray-900'
+                    }`}>
+                      {formatPrice(tick?.bid, symbol)}
+                    </td>
+
+                    {/* Ask */}
+                    <td className={`py-3 px-4 text-right font-mono text-sm font-medium transition-colors ${
+                      direction === 'up' ? 'text-green-600 bg-green-50/50' :
+                      direction === 'down' ? 'text-red-600 bg-red-50/50' :
+                      'text-gray-900'
+                    }`}>
+                      {formatPrice(tick?.ask, symbol)}
+                    </td>
+
+                    {/* Spread */}
+                    <td className="py-3 px-4 text-right text-sm text-gray-500">
+                      {calculateSpread(tick?.bid, tick?.ask, symbol)}
+                    </td>
+
+                    {/* Market Status */}
+                    <td className="py-3 px-4 text-center">
+                      <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full ${
+                        marketOpen
+                          ? 'text-green-700 bg-green-100'
+                          : 'text-gray-500 bg-gray-100'
+                      }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${marketOpen ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></span>
+                        {marketOpen ? 'Open' : 'Closed'}
+                      </span>
+                    </td>
+
+                    {/* Time */}
+                    <td className="py-3 px-4 text-right text-xs text-gray-400">
+                      {tick?.timestamp ? new Date(tick.timestamp).toLocaleTimeString() : '-'}
+                    </td>
+                  </motion.tr>
+                );
+              })}
+            </tbody>
+          </table>
+
+          {filteredSymbols.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+              <Activity size={48} className="mb-3 opacity-50" />
+              <p>No symbols found</p>
+              <p className="text-sm mt-1">Try adjusting your search or filters</p>
+            </div>
+          )}
+        </div>
+      </motion.div>
+
+      {/* Market Info Footer */}
+      <div className="text-xs text-gray-400 text-center">
+        Prices update automatically every 100ms when market is open.
+        Spread shown in pips.
+      </div>
     </div>
   );
 };
