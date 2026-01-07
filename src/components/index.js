@@ -5,3 +5,5 @@ export { default as OTPInput } from './OTPInput';
 export { default as GradientButton } from './GradientButton';
 export { default as StatusMessage } from './StatusMessage';
 export { default as Loader } from './Loader';
+export { default as MT5CredentialsModal } from './MT5CredentialsModal';
+export { default as DashboardMetricBox } from './DashboardMetricBox';

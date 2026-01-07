@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, CheckCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Loader2 } from 'lucide-react';
 import {
   AuthCard,
   OTPInput,
@@ -15,6 +15,8 @@ const OTPVerify = ({ email = 'user@example.com', onNavigate, onVerifySuccess }) 
   const [isLoading, setIsLoading] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [mt5Accounts, setMt5Accounts] = useState([]);
+  const [showMt5Status, setShowMt5Status] = useState(false);
   const [countdown, setCountdown] = useState(60);
   const [canResend, setCanResend] = useState(false);
 
@@ -61,10 +63,16 @@ const OTPVerify = ({ email = 'user@example.com', onNavigate, onVerifySuccess }) 
         api.setToken(response.access_token);
         api.setUser(response.user);
 
+        // Check if MT5 accounts were connected
+        if (response.mt5_accounts && response.mt5_accounts.length > 0) {
+          setMt5Accounts(response.mt5_accounts);
+          setShowMt5Status(true);
+        }
+
         setIsSuccess(true);
         setTimeout(() => {
           onVerifySuccess?.();
-        }, 2000);
+        }, 3000); // Extended to 3 seconds to show MT5 status
       }
     } catch (err) {
       setError(err.message || 'Invalid verification code. Please try again.');
@@ -115,12 +123,54 @@ const OTPVerify = ({ email = 'user@example.com', onNavigate, onVerifySuccess }) 
               <p className="text-gray-500 text-sm">Redirecting you to your dashboard...</p>
             </motion.div>
 
+            {/* MT5 Connection Status */}
+            {showMt5Status && mt5Accounts.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+                className="mt-6 space-y-2"
+              >
+                <p className="text-sm font-medium text-gray-700 mb-2">MT5 Account Status:</p>
+                {mt5Accounts.map((account, index) => (
+                  <motion.div
+                    key={index}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.6 + index * 0.1 }}
+                    className={`flex items-center justify-between p-3 rounded-lg text-sm ${
+                      account.status === 'connected'
+                        ? 'bg-green-50 border border-green-200'
+                        : 'bg-red-50 border border-red-200'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      {account.status === 'connected' ? (
+                        <CheckCircle className="w-4 h-4 text-green-600" />
+                      ) : (
+                        <div className="w-4 h-4 rounded-full bg-red-500" />
+                      )}
+                      <span className={account.status === 'connected' ? 'text-green-700' : 'text-red-700'}>
+                        <span className="font-medium">MT5 #{account.account_number}</span>
+                        {account.status === 'connected' ? ' - Connected' : ' - Failed'}
+                      </span>
+                    </div>
+                    {account.status === 'connected' && account.balance && (
+                      <span className="text-green-600 font-medium">
+                        ${account.balance.toLocaleString()}
+                      </span>
+                    )}
+                  </motion.div>
+                ))}
+              </motion.div>
+            )}
+
             <motion.div className="mt-6 mx-auto w-48 h-1 bg-gray-200 rounded-full overflow-hidden">
               <motion.div
                 className="h-full bg-primary-600"
                 initial={{ width: '0%' }}
                 animate={{ width: '100%' }}
-                transition={{ duration: 2, ease: 'easeInOut' }}
+                transition={{ duration: 3, ease: 'easeInOut' }}
               />
             </motion.div>
           </motion.div>

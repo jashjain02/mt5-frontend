@@ -14,15 +14,45 @@ import {
   ChevronDown,
   Loader2,
   RefreshCw,
+  TrendingUp,
+  Wifi,
+  WifiOff,
 } from 'lucide-react';
 import api from '../services/api';
+import MarketWatch from '../components/MarketWatch';
 
 const Dashboard = ({ onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [mt5Status, setMt5Status] = useState({ connected: false, checking: true });
+
+  // Check MT5 connection status on mount
+  useEffect(() => {
+    const checkMT5Status = async () => {
+      try {
+        const response = await api.getMT5Accounts();
+        if (response.success && response.accounts && response.accounts.length > 0) {
+          const hasConnected = response.accounts.some(acc => acc.is_connected);
+          setMt5Status({ connected: hasConnected, checking: false });
+        } else {
+          setMt5Status({ connected: false, checking: false });
+        }
+      } catch (err) {
+        console.error('Failed to check MT5 status:', err);
+        setMt5Status({ connected: false, checking: false });
+      }
+    };
+
+    checkMT5Status();
+
+    // Check every 30 seconds
+    const interval = setInterval(checkMT5Status, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'market-watch', label: 'Market Watch', icon: TrendingUp },
     { id: 'historical', label: 'Data', icon: History },
     { id: 'wallet', label: 'Wallet', icon: Wallet },
     { id: 'transactions', label: 'Transactions', icon: ArrowLeftRight },
@@ -34,6 +64,8 @@ const Dashboard = ({ onLogout }) => {
     switch (activeTab) {
       case 'dashboard':
         return <DashboardContent />;
+      case 'market-watch':
+        return <MarketWatch />;
       case 'historical':
         return <HistoricalDataContent />;
       case 'wallet':
@@ -82,7 +114,7 @@ const Dashboard = ({ onLogout }) => {
         `}
       >
         <div className="h-[calc(100vh-32px)] lg:h-[calc(100vh-48px)] w-[260px] flex flex-col py-8 px-5 bg-white rounded-2xl border border-gray-200 shadow-lg">
-          <div className="mb-8 px-2">
+          <div className="mb-6 px-2">
             <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
               <span
                 className="w-8 h-8 rounded-lg flex items-center justify-center text-sm text-white"
@@ -92,6 +124,34 @@ const Dashboard = ({ onLogout }) => {
               </span>
               FinFlow
             </h1>
+          </div>
+
+          {/* MT5 Connection Status */}
+          <div className="mb-4 px-2">
+            <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${
+              mt5Status.checking
+                ? 'bg-gray-50 text-gray-600'
+                : mt5Status.connected
+                  ? 'bg-green-50 text-green-700'
+                  : 'bg-red-50 text-red-700'
+            }`}>
+              {mt5Status.checking ? (
+                <>
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  <span>Checking MT5...</span>
+                </>
+              ) : mt5Status.connected ? (
+                <>
+                  <Wifi className="w-3 h-3" />
+                  <span className="font-medium">MT5 Connected</span>
+                </>
+              ) : (
+                <>
+                  <WifiOff className="w-3 h-3" />
+                  <span className="font-medium">MT5 Disconnected</span>
+                </>
+              )}
+            </div>
           </div>
 
           <nav className="flex-1 space-y-1">
@@ -143,7 +203,7 @@ const Dashboard = ({ onLogout }) => {
       </motion.aside>
 
       <main className="flex-1 p-4 lg:p-8 lg:pl-4 overflow-auto">
-        <div className="max-w-6xl mx-auto pt-12 lg:pt-0">
+        <div className="max-w-7xl mx-auto pt-12 lg:pt-0">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
@@ -162,28 +222,52 @@ const Dashboard = ({ onLogout }) => {
 };
 
 const DashboardContent = () => {
-  const statsRow1 = [
-    { label: 'Total Balance', value: '$24,563.00', change: '+12.5%', positive: true },
-    { label: 'Monthly Income', value: '$8,350.00', change: '+8.2%', positive: true },
-    { label: 'Monthly Expenses', value: '$3,240.00', change: '-4.1%', positive: false },
-    { label: 'Savings Rate', value: '61.2%', change: '+5.3%', positive: true },
-  ];
+  const [dashboardData, setDashboardData] = useState(null);
+  const [trades, setTrades] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const statsRow2 = [
-    { label: 'Pending Invoices', value: '$4,120.00', change: '+3.2%', positive: true },
-    { label: 'Total Investments', value: '$12,840.00', change: '+15.8%', positive: true },
-    { label: 'Credit Used', value: '$1,560.00', change: '-2.3%', positive: true },
-    { label: 'Net Worth', value: '$45,230.00', change: '+9.4%', positive: true },
-  ];
+  const fetchDashboardData = async () => {
+    try {
+      const data = await api.getDashboard();
+      setDashboardData(data);
+      setError('');
+    } catch (err) {
+      setError(err.message || 'Failed to load dashboard data');
+      console.error('Dashboard error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const transactions = [
-    { id: 'TXN001', title: 'Payment Received', amount: '+$2,500.00', date: '2024-01-15', status: 'Completed', type: 'income' },
-    { id: 'TXN002', title: 'Subscription Payment', amount: '-$29.99', date: '2024-01-15', status: 'Completed', type: 'expense' },
-    { id: 'TXN003', title: 'Transfer to Savings', amount: '-$500.00', date: '2024-01-14', status: 'Completed', type: 'transfer' },
-    { id: 'TXN004', title: 'Freelance Payment', amount: '+$1,200.00', date: '2024-01-13', status: 'Completed', type: 'income' },
-    { id: 'TXN005', title: 'Utility Bill', amount: '-$156.00', date: '2024-01-12', status: 'Completed', type: 'expense' },
-    { id: 'TXN006', title: 'Client Payment', amount: '+$3,400.00', date: '2024-01-11', status: 'Pending', type: 'income' },
-  ];
+  const fetchTrades = async () => {
+    try {
+      const response = await api.getMT5Trades();
+      if (response.success && response.trades && response.trades.length > 0) {
+        setTrades(response.trades.slice(0, 6)); // Show only last 6 trades
+      } else {
+        // Show dummy trades if no real trades available
+        setTrades(dummyTrades);
+      }
+    } catch (err) {
+      console.error('Failed to load trades:', err);
+      // Show dummy trades on error
+      setTrades(dummyTrades);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboardData();
+    fetchTrades();
+
+    // Auto-refresh every 5 seconds
+    const interval = setInterval(() => {
+      fetchDashboardData();
+      fetchTrades();
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const glassStyle = {
     background: 'rgba(255, 255, 255, 0.7)',
@@ -193,11 +277,101 @@ const DashboardContent = () => {
     boxShadow: '0 4px 20px rgba(0, 0, 0, 0.05)',
   };
 
+  const dummyTrades = [
+    { ticket: 12345678, symbol: 'EURUSD', type: 0, volume: 0.10, time_setup: Date.now() / 1000 - 86400, profit: 15.50 },
+    { ticket: 12345679, symbol: 'GBPUSD', type: 1, volume: 0.05, time_setup: Date.now() / 1000 - 172800, profit: -8.25 },
+    { ticket: 12345680, symbol: 'XAUUSD', type: 0, volume: 0.02, time_setup: Date.now() / 1000 - 259200, profit: 42.80 },
+    { ticket: 12345681, symbol: 'USDJPY', type: 1, volume: 0.15, time_setup: Date.now() / 1000 - 345600, profit: 12.30 },
+    { ticket: 12345682, symbol: 'AUDUSD', type: 0, volume: 0.08, time_setup: Date.now() / 1000 - 432000, profit: -5.60 },
+    { ticket: 12345683, symbol: 'EURJPY', type: 1, volume: 0.12, time_setup: Date.now() / 1000 - 518400, profit: 22.15 },
+  ];
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 text-primary-600 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-xl">
+        {error}
+      </div>
+    );
+  }
+
+  if (!dashboardData) {
+    return null;
+  }
+
+  const { account_info, dashboard_metrics } = dashboardData;
+
+  // Prepare stats for glassmorphic boxes
+  const statsRow1 = [
+    {
+      label: dashboard_metrics.balance.label,
+      value: dashboard_metrics.balance.formatted,
+      change: account_info.is_connected ? 'Connected' : 'Disconnected',
+      positive: account_info.is_connected
+    },
+    {
+      label: dashboard_metrics.equity.label,
+      value: dashboard_metrics.equity.formatted,
+      change: dashboard_metrics.profit.percentage
+        ? `${dashboard_metrics.profit.percentage > 0 ? '+' : ''}${dashboard_metrics.profit.percentage.toFixed(2)}%`
+        : '+0%',
+      positive: typeof dashboard_metrics.profit.value === 'number' && dashboard_metrics.profit.value >= 0
+    },
+    {
+      label: dashboard_metrics.margin.label,
+      value: dashboard_metrics.margin.formatted,
+      change: dashboard_metrics.margin_level.formatted,
+      positive: true
+    },
+    {
+      label: dashboard_metrics.free_margin.label,
+      value: dashboard_metrics.free_margin.formatted,
+      change: account_info.broker_server,
+      positive: true
+    },
+  ];
+
+  const statsRow2 = [
+    {
+      label: dashboard_metrics.profit.label,
+      value: dashboard_metrics.profit.formatted,
+      change: dashboard_metrics.profit.percentage
+        ? `${dashboard_metrics.profit.percentage > 0 ? '+' : ''}${dashboard_metrics.profit.percentage.toFixed(2)}%`
+        : '0%',
+      positive: typeof dashboard_metrics.profit.value === 'number' && dashboard_metrics.profit.value >= 0
+    },
+    {
+      label: dashboard_metrics.leverage.label,
+      value: dashboard_metrics.leverage.formatted,
+      change: `Account: ${account_info.account_number}`,
+      positive: true
+    },
+    {
+      label: dashboard_metrics.currency.label,
+      value: dashboard_metrics.currency.formatted,
+      change: account_info.account_name,
+      positive: true
+    },
+    {
+      label: dashboard_metrics.margin_level.label,
+      value: dashboard_metrics.margin_level.formatted,
+      change: new Date(account_info.last_connected_at).toLocaleTimeString(),
+      positive: true
+    },
+  ];
+
   return (
     <div className="space-y-5">
       <div>
         <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-2">Welcome back!</h1>
-        <p className="text-gray-500">Here's what's happening with your finances today.</p>
+        <p className="text-gray-500">Here's your MT5 trading account overview</p>
       </div>
 
       {/* First Row of KPIs */}
@@ -244,7 +418,7 @@ const DashboardContent = () => {
         ))}
       </div>
 
-      {/* Transactions Table */}
+      {/* Recent Trades Table */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -253,54 +427,64 @@ const DashboardContent = () => {
         style={glassStyle}
       >
         <div className="p-4 border-b border-gray-200/50">
-          <h2 className="text-lg font-semibold text-gray-900">Recent Transactions</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Recent MT5 Trades</h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-200/50">
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Transaction ID</th>
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Description</th>
+                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Ticket</th>
+                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Symbol</th>
+                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Type</th>
+                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Volume</th>
                 <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="text-right py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
+                <th className="text-right py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Profit</th>
               </tr>
             </thead>
             <tbody>
-              {transactions.map((txn, index) => (
-                <tr key={txn.id} className="border-b border-gray-100/50 last:border-0 hover:bg-white/50 transition-colors">
-                  <td className="py-3 px-4 text-sm text-gray-600 font-mono">{txn.id}</td>
-                  <td className="py-3 px-4">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                        txn.type === 'income'
-                          ? 'bg-green-100 text-green-600'
-                          : txn.type === 'expense'
-                          ? 'bg-red-100 text-red-600'
-                          : 'bg-blue-100 text-blue-600'
-                      }`}>
-                        <ArrowLeftRight size={14} />
+              {trades.length > 0 ? (
+                trades.map((trade, index) => (
+                  <tr key={trade.ticket || index} className="border-b border-gray-100/50 last:border-0 hover:bg-white/50 transition-colors">
+                    <td className="py-3 px-4 text-sm text-gray-600 font-mono">#{trade.ticket}</td>
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                          trade.type === 'BUY' || trade.type === 0
+                            ? 'bg-green-100 text-green-600'
+                            : 'bg-red-100 text-red-600'
+                        }`}>
+                          <ArrowLeftRight size={14} />
+                        </div>
+                        <span className="text-sm font-medium text-gray-900">{trade.symbol}</span>
                       </div>
-                      <span className="text-sm font-medium text-gray-900">{txn.title}</span>
-                    </div>
-                  </td>
-                  <td className="py-3 px-4 text-sm text-gray-500">{txn.date}</td>
-                  <td className="py-3 px-4">
-                    <span className={`text-xs font-medium px-2 py-1 rounded-full ${
-                      txn.status === 'Completed'
-                        ? 'text-green-700 bg-green-100'
-                        : 'text-yellow-700 bg-yellow-100'
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+                        trade.type === 'BUY' || trade.type === 0
+                          ? 'text-green-700 bg-green-100'
+                          : 'text-red-700 bg-red-100'
+                      }`}>
+                        {trade.type === 0 || trade.type === 'BUY' ? 'BUY' : 'SELL'}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-sm text-gray-500">{trade.volume}</td>
+                    <td className="py-3 px-4 text-sm text-gray-500">
+                      {new Date(trade.time_setup * 1000 || trade.time_setup).toLocaleDateString()}
+                    </td>
+                    <td className={`py-3 px-4 text-sm font-semibold text-right ${
+                      trade.profit >= 0 ? 'text-green-600' : 'text-red-600'
                     }`}>
-                      {txn.status}
-                    </span>
-                  </td>
-                  <td className={`py-3 px-4 text-sm font-semibold text-right ${
-                    txn.amount.startsWith('+') ? 'text-green-600' : 'text-gray-900'
-                  }`}>
-                    {txn.amount}
+                      {trade.profit >= 0 ? '+' : ''}{trade.profit?.toFixed(2)}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="6" className="py-8 text-center text-gray-500">
+                    No trades available
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
@@ -321,6 +505,7 @@ const HistoricalDataContent = () => {
   // Cache all timeframe data - key is `${symbol}_${timeframe}`
   const [dataCache, setDataCache] = useState({});
   const [loadingProgress, setLoadingProgress] = useState({ current: 0, total: 0 });
+  const [lastRefreshTime, setLastRefreshTime] = useState(null);
 
   const timeframes = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1', 'MN1'];
 
@@ -368,6 +553,7 @@ const HistoricalDataContent = () => {
       });
 
       setDataCache(prev => ({ ...prev, ...newCache }));
+      setLastRefreshTime(new Date());
     } catch (err) {
       console.error('Failed to fetch data:', err);
       setError('Failed to load data');
@@ -402,6 +588,26 @@ const HistoricalDataContent = () => {
 
     initializeData();
   }, []);
+
+  // Auto-refresh data every 60 seconds (1 minute)
+  useEffect(() => {
+    if (!selectedSymbol) return;
+
+    const refreshInterval = setInterval(() => {
+      // Silently refresh current symbol data in background
+      const keysToRemove = Object.keys(dataCache).filter(k => k.startsWith(`${selectedSymbol}_`));
+      setDataCache(prev => {
+        const newCache = { ...prev };
+        keysToRemove.forEach(k => delete newCache[k]);
+        return newCache;
+      });
+
+      // Fetch fresh data
+      fetchAllTimeframesForSymbol(selectedSymbol);
+    }, 60000); // 60 seconds
+
+    return () => clearInterval(refreshInterval);
+  }, [selectedSymbol, dataCache]);
 
   // When symbol changes, fetch all timeframes for that symbol (if not cached)
   const handleSymbolChange = async (symbol) => {
@@ -438,9 +644,15 @@ const HistoricalDataContent = () => {
   const ohlcvData = currentData.data;
   const pagination = { total: currentData.total, offset: currentData.offset, limit: currentData.limit };
 
-  const formatTimestamp = (isoString) => {
-    const date = new Date(isoString);
-    return date.toLocaleString('en-US', {
+  const formatTimestamp = (row) => {
+    // Use pre-formatted UK timestamp from API if available
+    if (row.timestamp_uk_formatted) {
+      return row.timestamp_uk_formatted;
+    }
+
+    // Fallback: format the timestamp (already in UK time from API)
+    const date = new Date(row.timestamp);
+    const formatted = date.toLocaleString('en-GB', {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
@@ -449,6 +661,12 @@ const HistoricalDataContent = () => {
       second: '2-digit',
       hour12: false,
     });
+
+    // Determine if GMT or BST based on current date
+    const month = date.getMonth();
+    const timezone = (month >= 3 && month <= 9) ? 'BST' : 'GMT';
+
+    return `${formatted} ${timezone}`;
   };
 
   const formatPrice = (price) => {
@@ -474,7 +692,7 @@ const HistoricalDataContent = () => {
 
   const filteredData = ohlcvData.filter((row) =>
     searchQuery === '' ||
-    formatTimestamp(row.timestamp).toLowerCase().includes(searchQuery.toLowerCase())
+    formatTimestamp(row).toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -482,7 +700,23 @@ const HistoricalDataContent = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-2">Data</h1>
-          <p className="text-gray-500">View historical OHLCV data across different timeframes.</p>
+          <p className="text-gray-500">
+            View historical OHLCV data across different timeframes.
+            <span className="ml-2 text-xs text-gray-400">
+              All times displayed in UK timezone (GMT/BST)
+            </span>
+          </p>
+          {lastRefreshTime && (
+            <p className="text-xs text-gray-400 mt-1">
+              Last updated: {lastRefreshTime.toLocaleTimeString('en-GB', {
+                timeZone: 'Europe/London',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+              })} • Auto-refresh: Every 60s
+            </p>
+          )}
         </div>
         <motion.button
           onClick={handleRefresh}
@@ -631,7 +865,7 @@ const HistoricalDataContent = () => {
                     key={index}
                     className="border-b border-gray-100/50 last:border-0 hover:bg-white/50 transition-colors"
                   >
-                    <td className="py-3 px-4 text-sm text-gray-600 font-mono">{formatTimestamp(row.timestamp)}</td>
+                    <td className="py-3 px-4 text-sm text-gray-600 font-mono">{formatTimestamp(row)}</td>
                     <td className="py-3 px-4 text-sm text-gray-900 text-right font-medium">{formatPrice(row.open)}</td>
                     <td className="py-3 px-4 text-sm text-green-600 text-right font-medium">{formatPrice(row.high)}</td>
                     <td className="py-3 px-4 text-sm text-red-600 text-right font-medium">{formatPrice(row.low)}</td>

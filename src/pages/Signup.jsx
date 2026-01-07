@@ -7,6 +7,7 @@ import {
   PasswordField,
   GradientButton,
   StatusMessage,
+  MT5CredentialsModal,
 } from '../components';
 import api from '../services/api';
 
@@ -22,6 +23,8 @@ const Signup = ({ onNavigate, onSignupSuccess }) => {
   const [touched, setTouched] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState('');
+  const [showMT5Modal, setShowMT5Modal] = useState(false);
+  const [mt5Error, setMt5Error] = useState('');
 
   const validateName = (name, fieldName) => {
     if (!name) return `${fieldName} is required`;
@@ -129,7 +132,14 @@ const Signup = ({ onNavigate, onSignupSuccess }) => {
       return;
     }
 
+    // Show MT5 credentials modal
+    setApiError('');
+    setShowMT5Modal(true);
+  };
+
+  const handleMT5Submit = async (mt5Credentials) => {
     setIsLoading(true);
+    setMt5Error('');
     setApiError('');
 
     try {
@@ -138,14 +148,16 @@ const Signup = ({ onNavigate, onSignupSuccess }) => {
         lastName: formData.lastName,
         email: formData.email,
         password: formData.password,
+        ...mt5Credentials,
       });
 
       if (response.success) {
         // Registration successful - navigate to pending approval
+        setShowMT5Modal(false);
         onSignupSuccess?.(formData.email);
       }
     } catch (error) {
-      setApiError(error.message || 'Registration failed. Please try again.');
+      setMt5Error(error.message || 'MT5 validation failed. Please check your credentials.');
     } finally {
       setIsLoading(false);
     }
@@ -253,8 +265,8 @@ const Signup = ({ onNavigate, onSignupSuccess }) => {
           />
 
           <div className="pt-1">
-            <GradientButton type="submit" disabled={!isFormValid} loading={isLoading}>
-              Create Account
+            <GradientButton type="submit" disabled={!isFormValid}>
+              Continue to MT5 Setup
             </GradientButton>
           </div>
         </form>
@@ -283,6 +295,14 @@ const Signup = ({ onNavigate, onSignupSuccess }) => {
           </p>
         </div>
       </motion.div>
+
+      <MT5CredentialsModal
+        isOpen={showMT5Modal}
+        onClose={() => !isLoading && setShowMT5Modal(false)}
+        onSubmit={handleMT5Submit}
+        isLoading={isLoading}
+        error={mt5Error}
+      />
     </AuthCard>
   );
 };

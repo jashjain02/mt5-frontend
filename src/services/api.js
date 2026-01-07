@@ -61,15 +61,25 @@ class ApiService {
 
   // Authentication endpoints
   async register(userData) {
+    const payload = {
+      first_name: userData.firstName,
+      last_name: userData.lastName,
+      email_id: userData.email,
+      password: userData.password,
+      contact: userData.contact || null,
+    };
+
+    // Include MT5 credentials if provided
+    if (userData.mt5AccountNumber) {
+      payload.mt5_account_number = userData.mt5AccountNumber;
+      payload.mt5_account_name = userData.mt5AccountName;
+      payload.mt5_broker_server = userData.mt5BrokerServer;
+      payload.mt5_account_password = userData.mt5AccountPassword;
+    }
+
     return this.request('/register', {
       method: 'POST',
-      body: JSON.stringify({
-        first_name: userData.firstName,
-        last_name: userData.lastName,
-        email_id: userData.email,
-        password: userData.password,
-        contact: userData.contact || null,
-      }),
+      body: JSON.stringify(payload),
       skipAuth: true,
     });
   }
@@ -204,6 +214,26 @@ class ApiService {
     return this.request(`/ohlcv/symbols${params}`, {
       method: 'GET',
       skipAuth: true,
+    });
+  }
+
+  // Dashboard endpoints
+  async getDashboard() {
+    return this.request('/dashboard', {
+      method: 'GET',
+    });
+  }
+
+  // MT5 Account endpoints
+  async getMT5Accounts() {
+    return this.request('/mt5-accounts', {
+      method: 'GET',
+    });
+  }
+
+  async getMT5Trades() {
+    return this.request('/mt5-accounts/trades', {
+      method: 'GET',
     });
   }
 }
