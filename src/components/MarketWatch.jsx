@@ -21,6 +21,7 @@ import {
   ArrowUpDown,
   Clock,
 } from 'lucide-react';
+import SymbolsModal from './SymbolsModal';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const WS_BASE_URL = API_BASE_URL.replace('http', 'ws');
@@ -196,6 +197,8 @@ const MarketWatch = () => {
   const [marketStatus, setMarketStatus] = useState('unknown'); // open, closed, unknown
   const [error, setError] = useState('');
   const [contextMenu, setContextMenu] = useState(null); // { x, y, symbol }
+  const [showSymbolsModal, setShowSymbolsModal] = useState(false);
+  const [selectedSymbol, setSelectedSymbol] = useState('');
 
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
@@ -473,9 +476,18 @@ const MarketWatch = () => {
 
   // Close context menu on click outside
   useEffect(() => {
-    const handleClick = () => closeContextMenu();
+    const handleClick = (e) => {
+      // Don't close if clicking inside the context menu
+      if (e.target.closest('.context-menu-container')) {
+        return;
+      }
+      closeContextMenu();
+    };
     if (contextMenu) {
-      document.addEventListener('click', handleClick);
+      // Use setTimeout to ensure the click event that opened the menu doesn't immediately close it
+      setTimeout(() => {
+        document.addEventListener('click', handleClick);
+      }, 0);
       return () => document.removeEventListener('click', handleClick);
     }
   }, [contextMenu, closeContextMenu]);
@@ -706,7 +718,7 @@ const MarketWatch = () => {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.1 }}
-            className="fixed bg-white rounded-lg shadow-2xl border border-gray-200 py-2 min-w-[200px] max-h-[80vh] overflow-y-auto"
+            className="context-menu-container fixed bg-white rounded-lg shadow-2xl border border-gray-200 py-2 min-w-[200px] max-h-[80vh] overflow-y-auto"
             style={{
               left: `${Math.min(contextMenu.x, window.innerWidth - 220)}px`,
               top: `${Math.min(contextMenu.y, window.innerHeight - 500)}px`,
@@ -774,7 +786,14 @@ const MarketWatch = () => {
             <div className="border-t border-gray-200 my-2"></div>
 
             {/* Symbols */}
-            <button className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-3 transition-colors">
+            <button
+              onClick={() => {
+                setSelectedSymbol(contextMenu.symbol);
+                setShowSymbolsModal(true);
+                closeContextMenu();
+              }}
+              className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-3 transition-colors"
+            >
               <Search size={16} className="text-blue-600" />
               <span className="text-gray-700">Symbols</span>
               <span className="ml-auto text-xs text-gray-400">Ctrl+U</span>
@@ -802,6 +821,14 @@ const MarketWatch = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Symbols Modal */}
+      <SymbolsModal
+        isOpen={showSymbolsModal}
+        onClose={() => setShowSymbolsModal(false)}
+        symbol={selectedSymbol}
+        initialTab="ticks"
+      />
     </div>
   );
 };

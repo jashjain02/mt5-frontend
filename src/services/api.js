@@ -36,7 +36,17 @@ class ApiService {
         headers,
       });
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (jsonError) {
+        // Response wasn't valid JSON
+        throw {
+          status: response.status,
+          message: `Server error (${response.status}): Invalid response format`,
+          data: null,
+        };
+      }
 
       if (!response.ok) {
         throw {
@@ -51,6 +61,8 @@ class ApiService {
       if (error.status) {
         throw error;
       }
+      // Actual network error (server unreachable, CORS, etc.)
+      console.error('Fetch error:', error);
       throw {
         status: 0,
         message: 'Network error. Please check your connection.',
@@ -217,7 +229,6 @@ class ApiService {
     });
   }
 
-<<<<<<< HEAD
   // Dashboard endpoints
   async getDashboard() {
     return this.request('/dashboard', {
@@ -225,8 +236,6 @@ class ApiService {
     });
   }
 
-=======
->>>>>>> 271e2c581aded554bc7784149f8080afe8826b3f
   // MT5 Account endpoints
   async getMT5Accounts() {
     return this.request('/mt5-accounts', {
@@ -234,13 +243,12 @@ class ApiService {
     });
   }
 
-<<<<<<< HEAD
   async getMT5Trades() {
     return this.request('/mt5-accounts/trades', {
       method: 'GET',
     });
   }
-=======
+
   async getMT5Account(accountId) {
     return this.request(`/mt5-accounts/${accountId}`, {
       method: 'GET',
@@ -296,7 +304,6 @@ class ApiService {
       error: result.status === 'rejected' ? result.reason?.message : null,
     }));
   }
->>>>>>> 271e2c581aded554bc7784149f8080afe8826b3f
 }
 
 export const api = new ApiService();
