@@ -19,11 +19,13 @@ import {
   WifiOff,
   Activity,
   Calculator,
+  FileSpreadsheet,
 } from 'lucide-react';
 import api from '../services/api';
 import MarketWatch from '../components/MarketWatch';
 import TicksModal from '../components/TicksModal';
 import ValuesPage from '../components/ValuesPage';
+import TradingPlan from '../components/TradingPlan';
 
 const Dashboard = ({ onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -57,6 +59,7 @@ const Dashboard = ({ onLogout }) => {
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'market-watch', label: 'Market Watch', icon: TrendingUp },
+    { id: 'trading-plan', label: 'Trading Plan', icon: FileSpreadsheet },
     { id: 'historical', label: 'Data', icon: History },
     { id: 'wallet', label: 'Wallet', icon: Wallet },
     { id: 'transactions', label: 'Transactions', icon: ArrowLeftRight },
@@ -70,6 +73,8 @@ const Dashboard = ({ onLogout }) => {
         return <DashboardContent />;
       case 'market-watch':
         return <MarketWatch />;
+      case 'trading-plan':
+        return <TradingPlan />;
       case 'historical':
         return <HistoricalDataContent />;
       case 'wallet':
