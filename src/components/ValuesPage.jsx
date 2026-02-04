@@ -5,6 +5,110 @@ import { ArrowLeft, Loader2, ChevronDown, RefreshCw, Wifi, WifiOff } from 'lucid
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const WS_BASE_URL = API_BASE_URL.replace('http', 'ws');
 
+// Calculation Tooltip Component
+const CalculationTooltip = ({ field, row }) => {
+  const getInputs = () => {
+    switch(field) {
+      case 'range':
+        return {
+          label: 'RANGE',
+          formula: 'high - low',
+          inputs: [
+            { name: 'high', value: row.high },
+            { name: 'low', value: row.low }
+          ]
+        };
+
+      case 'jgd':
+        return {
+          label: 'JGD',
+          formula: 'ceil((high - (abs_range * 0.382)), 0.1)',
+          inputs: [
+            { name: 'high', value: row.high },
+            { name: 'abs_range', value: row.abs_range }
+          ]
+        };
+
+      case 'jwd':
+        return {
+          label: 'JWD',
+          formula: 'floor((low + (abs_range * 0.382)), 0.1)',
+          inputs: [
+            { name: 'low', value: row.low },
+            { name: 'abs_range', value: row.abs_range }
+          ]
+        };
+
+      case 'buffer':
+        return {
+          label: 'Buffer',
+          formula: 'ceil((range * 0.073), 0.1)',
+          inputs: [
+            { name: 'range', value: row.range }
+          ]
+        };
+
+      case 'abs_range':
+        return {
+          label: 'ABS RANGE',
+          formula: 'max(high-low, abs(high-prev_close), abs(low-prev_close))',
+          inputs: [
+            { name: 'high', value: row.high },
+            { name: 'low', value: row.low },
+            { name: 'prev_close', value: row.prev_close }
+          ]
+        };
+
+      case 'atr':
+        return {
+          label: 'ATR',
+          formula: 'avg(abs_range, 0, 13)',
+          inputs: [
+            { name: 'current abs_range', value: row.abs_range },
+            { name: 'previous 13 values', value: row.prev_abs_range?.length > 0 ? row.prev_abs_range.join(', ') : 'N/A' }
+          ]
+        };
+
+      case 'd_pat':
+        return {
+          label: 'D Pattern',
+          formula: "'2+2' if jwd > prev_jwd else ('3+1' if jgd < prev_jgd else '2+1')",
+          inputs: [
+            { name: 'jwd', value: row.jwd },
+            { name: 'jgd', value: row.jgd },
+            { name: 'prev_jwd', value: row.prev_jwd },
+            { name: 'prev_jgd', value: row.prev_jgd }
+          ]
+        };
+
+      default:
+        return null;
+    }
+  };
+
+  const data = getInputs();
+  if (!data) return null;
+
+  return (
+    <div className="absolute z-50 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-xl border border-gray-700 min-w-[250px] max-w-[350px] pointer-events-none"
+         style={{ bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: '8px' }}>
+      <div className="font-semibold text-blue-300 mb-2">{data.label}</div>
+      <div className="text-gray-400 mb-2 italic text-[10px]">{data.formula}</div>
+      <div className="space-y-1">
+        <div className="font-medium text-gray-300 mb-1">Input Values:</div>
+        {data.inputs.map((input, idx) => (
+          <div key={idx} className="flex justify-between gap-4">
+            <span className="text-gray-400">{input.name}:</span>
+            <span className="font-mono text-green-300">
+              {typeof input.value === 'number' ? input.value.toFixed(5) : input.value || 'N/A'}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const ValuesPage = ({ onBack, initialSymbol = 'XAUUSD' }) => {
   const [selectedSymbol, setSelectedSymbol] = useState(initialSymbol);
   const [selectedTimeframe, setSelectedTimeframe] = useState('M1');
@@ -13,6 +117,7 @@ const ValuesPage = ({ onBack, initialSymbol = 'XAUUSD' }) => {
   const [valuesData, setValuesData] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [hoveredCell, setHoveredCell] = useState(null); // { field: 'atr', rowIndex: 0 }
 
   // WebSocket state
   const [wsConnected, setWsConnected] = useState(false);
@@ -249,7 +354,7 @@ const ValuesPage = ({ onBack, initialSymbol = 'XAUUSD' }) => {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col lg:flex-row lg:items-center gap-4 p-4 rounded-2xl"
+        className="flex flex-col lg:flex-row lg:items-center gap-4 p-4 rounded-2xl relative z-50"
         style={glassStyle}
       >
         {/* Timestamp Input */}
@@ -265,7 +370,7 @@ const ValuesPage = ({ onBack, initialSymbol = 'XAUUSD' }) => {
         </div>
 
         {/* Timeframe Dropdown */}
-        <div className="relative">
+        <div className="relative z-[100]">
           <label className="block text-xs font-medium text-gray-500 mb-1.5">Timeframe</label>
           <button
             onClick={() => setIsTimeframeDropdownOpen(!isTimeframeDropdownOpen)}
@@ -276,7 +381,7 @@ const ValuesPage = ({ onBack, initialSymbol = 'XAUUSD' }) => {
           </button>
 
           {isTimeframeDropdownOpen && (
-            <div className="absolute top-full left-0 mt-2 w-full bg-white rounded-xl border border-gray-200 shadow-lg z-50 max-h-60 overflow-y-auto">
+            <div className="absolute top-full left-0 mt-2 w-full bg-white rounded-xl border border-gray-200 shadow-xl z-[9999] max-h-60 overflow-y-auto">
               {timeframes.map((tf) => (
                 <button
                   key={tf}
@@ -388,14 +493,77 @@ const ValuesPage = ({ onBack, initialSymbol = 'XAUUSD' }) => {
                     <td className="py-2.5 px-3 text-red-600 text-right font-medium">{formatValue(row.low)}</td>
                     <td className="py-2.5 px-3 text-gray-900 text-right font-medium">{formatValue(row.close)}</td>
 
-                    {/* Calculated Fields */}
-                    <td className="py-2.5 px-3 text-gray-700 text-right bg-blue-50/30">{formatValue(row.atr)}</td>
-                    <td className="py-2.5 px-3 text-gray-700 text-right bg-blue-50/30">{formatValue(row.range)}</td>
-                    <td className="py-2.5 px-3 text-gray-700 text-right bg-blue-50/30">{formatValue(row.jgd)}</td>
-                    <td className="py-2.5 px-3 text-gray-700 text-right bg-blue-50/30">{formatValue(row.jwd)}</td>
-                    <td className="py-2.5 px-3 text-gray-700 text-right bg-blue-50/30">{formatValue(row.d_pat)}</td>
-                    <td className="py-2.5 px-3 text-gray-700 text-right bg-blue-50/30">{formatValue(row.abs_range)}</td>
-                    <td className="py-2.5 px-3 text-gray-700 text-right bg-blue-50/30">{formatValue(row.buffer)}</td>
+                    {/* Calculated Fields with Tooltips */}
+                    <td
+                      className="py-2.5 px-3 text-gray-700 text-right bg-blue-50/30 relative cursor-help"
+                      onMouseEnter={() => setHoveredCell({ field: 'atr', rowIndex: index })}
+                      onMouseLeave={() => setHoveredCell(null)}
+                    >
+                      {formatValue(row.atr)}
+                      {hoveredCell?.field === 'atr' && hoveredCell?.rowIndex === index && (
+                        <CalculationTooltip field="atr" row={row} />
+                      )}
+                    </td>
+                    <td
+                      className="py-2.5 px-3 text-gray-700 text-right bg-blue-50/30 relative cursor-help"
+                      onMouseEnter={() => setHoveredCell({ field: 'range', rowIndex: index })}
+                      onMouseLeave={() => setHoveredCell(null)}
+                    >
+                      {formatValue(row.range)}
+                      {hoveredCell?.field === 'range' && hoveredCell?.rowIndex === index && (
+                        <CalculationTooltip field="range" row={row} />
+                      )}
+                    </td>
+                    <td
+                      className="py-2.5 px-3 text-gray-700 text-right bg-blue-50/30 relative cursor-help"
+                      onMouseEnter={() => setHoveredCell({ field: 'jgd', rowIndex: index })}
+                      onMouseLeave={() => setHoveredCell(null)}
+                    >
+                      {formatValue(row.jgd)}
+                      {hoveredCell?.field === 'jgd' && hoveredCell?.rowIndex === index && (
+                        <CalculationTooltip field="jgd" row={row} />
+                      )}
+                    </td>
+                    <td
+                      className="py-2.5 px-3 text-gray-700 text-right bg-blue-50/30 relative cursor-help"
+                      onMouseEnter={() => setHoveredCell({ field: 'jwd', rowIndex: index })}
+                      onMouseLeave={() => setHoveredCell(null)}
+                    >
+                      {formatValue(row.jwd)}
+                      {hoveredCell?.field === 'jwd' && hoveredCell?.rowIndex === index && (
+                        <CalculationTooltip field="jwd" row={row} />
+                      )}
+                    </td>
+                    <td
+                      className="py-2.5 px-3 text-gray-700 text-right bg-blue-50/30 relative cursor-help"
+                      onMouseEnter={() => setHoveredCell({ field: 'd_pat', rowIndex: index })}
+                      onMouseLeave={() => setHoveredCell(null)}
+                    >
+                      {formatValue(row.d_pat)}
+                      {hoveredCell?.field === 'd_pat' && hoveredCell?.rowIndex === index && (
+                        <CalculationTooltip field="d_pat" row={row} />
+                      )}
+                    </td>
+                    <td
+                      className="py-2.5 px-3 text-gray-700 text-right bg-blue-50/30 relative cursor-help"
+                      onMouseEnter={() => setHoveredCell({ field: 'abs_range', rowIndex: index })}
+                      onMouseLeave={() => setHoveredCell(null)}
+                    >
+                      {formatValue(row.abs_range)}
+                      {hoveredCell?.field === 'abs_range' && hoveredCell?.rowIndex === index && (
+                        <CalculationTooltip field="abs_range" row={row} />
+                      )}
+                    </td>
+                    <td
+                      className="py-2.5 px-3 text-gray-700 text-right bg-blue-50/30 relative cursor-help"
+                      onMouseEnter={() => setHoveredCell({ field: 'buffer', rowIndex: index })}
+                      onMouseLeave={() => setHoveredCell(null)}
+                    >
+                      {formatValue(row.buffer)}
+                      {hoveredCell?.field === 'buffer' && hoveredCell?.rowIndex === index && (
+                        <CalculationTooltip field="buffer" row={row} />
+                      )}
+                    </td>
 
                     {/* Rising Channel Values */}
                     {fibLevels.map((level) => (

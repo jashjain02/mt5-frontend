@@ -304,6 +304,37 @@ class ApiService {
       error: result.status === 'rejected' ? result.reason?.message : null,
     }));
   }
+
+  // Calculated Values endpoints
+  async getCalculatedValues(symbol, timeframe, options = {}) {
+    const params = new URLSearchParams({
+      symbol,
+      timeframe,
+      limit: options.limit || 1,
+      offset: options.offset || 0,
+    });
+
+    // Add optional date filtering
+    if (options.startDate) {
+      params.append('start_date', options.startDate);
+    }
+    if (options.endDate) {
+      params.append('end_date', options.endDate);
+    }
+
+    return this.request(`/calculated-values?${params.toString()}`, {
+      method: 'GET',
+      skipAuth: true,
+    });
+  }
+
+  async getTradeLogs(symbol, timeframe, barTimestamp) {
+    const params = new URLSearchParams({ symbol, timeframe, bar_timestamp: barTimestamp });
+    return this.request(`/calculated-values/trade-logs?${params.toString()}`, {
+      method: 'GET',
+      skipAuth: true,
+    });
+  }
 }
 
 export const api = new ApiService();
