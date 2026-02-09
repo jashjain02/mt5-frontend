@@ -34,6 +34,7 @@ const TradingPlan = () => {
   const [isLoadingApi, setIsLoadingApi] = useState(false);
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
+  const lastFormingBarTimestampRef = useRef(null);  // Track forming bar timestamp to detect new bar
 
   const timeframes = ['H1', 'H4', 'H5', 'D1', 'W1'];
 
@@ -107,19 +108,29 @@ const TradingPlan = () => {
       const endTime = selectedTimestamp.split(' - ')[1]; // Extract end time
       const endDateTime = `${selectedDate} ${endTime}`;
 
+      // Fetch 2 bars ending at the selected time
+      // Trade logs were detected using the PREVIOUS bar's RC/FC levels
       const response = await api.getCalculatedValues('XAUUSD', selectedTimeframe, {
-        limit: 1,
-        startDate: startDateTime,
-        endDate: endDateTime
+        limit: 2,
+        endDate: endDateTime,  // Get bars up to and including the selected time
       });
 
       if (response.success && response.data.length > 0) {
-        const transformedData = transformApiDataToTradingPlan(response.data[0]);
+        // response.data[0] = selected bar (the monitoring period, where trade logs are stored)
+        // response.data[1] = previous bar (whose RC/FC levels were used for crossing detection)
+        const selectedBar = response.data[0];
+        const previousBar = response.data.length > 1 ? response.data[1] : response.data[0];
+
+        // Use PREVIOUS bar's RC/FC levels for display (matches what trade logs used)
+        const transformedData = transformApiDataToTradingPlan(previousBar);
         setApiData(transformedData);
 
-        // Fetch trade logs for this bar
+        // Store the selected bar's timestamp as the monitoring period
+        transformedData.formingBarTimestamp = selectedBar.timestamp_uk_formatted;
+
+        // Fetch trade logs for the SELECTED bar (that's where logs are stored)
         try {
-          const barTs = response.data[0].timestamp_uk_formatted;
+          const barTs = selectedBar.timestamp_uk_formatted;
           if (barTs) {
             const logsResp = await api.getTradeLogs('XAUUSD', selectedTimeframe, barTs);
             if (logsResp.success && logsResp.logs) {
@@ -144,21 +155,88 @@ const TradingPlan = () => {
     }
   };
 
+  // Helper to calculate the current forming bar's timestamp based on timeframe
+  // This is the bar that's currently being monitored (not yet complete)
+  const calculateFormingBarTimestamp = (timeframe) => {
+    const now = new Date();
+    // Get current hour in EET (broker timezone = UTC+2)
+    // Note: This is simplified - in production, consider DST handling
+    const utcHours = now.getUTCHours();
+    const eetHours = (utcHours + 2) % 24;
+
+    let barHour;
+    switch (timeframe) {
+      case 'H1':
+        barHour = eetHours;
+        break;
+      case 'H4':
+        barHour = Math.floor(eetHours / 4) * 4;
+        break;
+      case 'H5':
+        barHour = Math.floor(eetHours / 5) * 5;
+        break;
+      default:
+        barHour = eetHours;
+    }
+
+    // Build the timestamp string in YYYY-MM-DD HH:MM:SS format (EET)
+    const year = now.getUTCFullYear();
+    const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+    // Handle day rollover when converting to EET
+    let day = now.getUTCDate();
+    if (utcHours + 2 >= 24) {
+      day += 1;
+    }
+    const dayStr = String(day).padStart(2, '0');
+    const hourStr = String(barHour).padStart(2, '0');
+
+    return `${year}-${month}-${dayStr} ${hourStr}:00:00`;
+  };
+
   // Fetch latest trading plan data (for live mode)
   const loadLatestPlan = async () => {
     setIsLoadingApi(true);
     setError('');
 
     try {
-      // Fetch latest data without date filtering
+      // Fetch latest COMPLETED bar for RC/FC levels display
+      // During 08:00 hour, this returns 07:00 bar (whose levels are used for crossing detection)
       const response = await api.getCalculatedValues('XAUUSD', selectedTimeframe, {
         limit: 1,
-        // No startDate/endDate = get latest
+        offset: 0,
       });
 
       if (response.success && response.data.length > 0) {
-        const transformedData = transformApiDataToTradingPlan(response.data[0]);
+        const completedBar = response.data[0];
+
+        // Display the completed bar's RC/FC levels (matches what backend uses for crossing detection)
+        const transformedData = transformApiDataToTradingPlan(completedBar);
         setApiData(transformedData);
+
+        // Calculate the FORMING bar's timestamp (current monitoring period)
+        // Trade logs are stored with this timestamp (the bar where crossings occur)
+        const formingBarTs = calculateFormingBarTimestamp(selectedTimeframe);
+
+        // Store the forming bar timestamp for display (the monitoring period)
+        transformedData.formingBarTimestamp = formingBarTs;
+
+        // Fetch trade logs for the FORMING bar (crossings happening NOW)
+        try {
+          if (formingBarTs) {
+            const logsResp = await api.getTradeLogs('XAUUSD', selectedTimeframe, formingBarTs);
+            if (logsResp.success && logsResp.logs) {
+              transformedData.tradeLogs = logsResp.logs;
+            } else {
+              transformedData.tradeLogs = [];
+            }
+          } else {
+            transformedData.tradeLogs = [];
+          }
+        } catch (logErr) {
+          console.debug('Could not fetch trade logs for forming bar:', logErr);
+          transformedData.tradeLogs = [];
+        }
+
         setPlanData(transformedData);
         setIsLiveMode(true);
       } else {
@@ -203,30 +281,58 @@ const TradingPlan = () => {
         const dataWithFormingFlag = { ...message.data, is_forming: message.is_forming, tick: message.tick };
         const transformedData = transformApiDataToTradingPlan(dataWithFormingFlag);
         setApiData(transformedData);
+
+        // Detect new bar by comparing forming bar timestamp (not displayed plan timestamp)
+        const formingBarTimestamp = transformedData.timestamp;
+        const isNewBar = lastFormingBarTimestampRef.current &&
+                         lastFormingBarTimestampRef.current !== formingBarTimestamp;
+        lastFormingBarTimestampRef.current = formingBarTimestamp;
+
+        // If new bar started, refresh to get the newly completed bar's RC/FC levels
+        if (isNewBar) {
+          loadLatestPlan();
+        }
+
         // Only update the displayed plan when in live mode
         // Don't overwrite historical data the user is viewing
         setIsLiveMode((prev) => {
           if (prev) {
-            // Only update planData when high, low, or bar timestamp changes
-            // (trading plan values only change on new high/low or new bar)
+            // Only update marketData (tick info), not RC/FC levels
+            // RC/FC levels come from previous completed bar (via loadLatestPlan)
             setPlanData((currentPlan) => {
-              if (!currentPlan) return transformedData;
+              if (!currentPlan) return currentPlan;
               const d = message.data;
               const highChanged = d.high !== currentPlan.marketData?.high;
               const lowChanged = d.low !== currentPlan.marketData?.low;
-              const newBar = transformedData.timestamp !== currentPlan.timestamp;
-              if (newBar) {
-                // New bar: reset trade logs
-                return { ...transformedData, tradeLogs: [] };
+
+              if (isNewBar) {
+                // New bar: reset trade logs, keep current RC/FC levels until loadLatestPlan completes
+                return { ...currentPlan, tradeLogs: [] };
               }
               if (highChanged || lowChanged) {
-                return { ...transformedData, tradeLogs: currentPlan.tradeLogs || [] };
+                // Update marketData from current forming bar, not RC/FC levels
+                return {
+                  ...currentPlan,
+                  marketData: {
+                    ...currentPlan.marketData,
+                    open: transformedData.marketData?.open,
+                    high: transformedData.marketData?.high,
+                    low: transformedData.marketData?.low,
+                    close: transformedData.marketData?.last,  // Forming bar's close = last price
+                    bid: transformedData.marketData?.bid,
+                    ask: transformedData.marketData?.ask,
+                    last: transformedData.marketData?.last,
+                    spread: transformedData.marketData?.spread,
+                  },
+                  tradeLogs: currentPlan.tradeLogs || [],
+                };
               }
-              // Only update tick-driven fields (bid, ask, last, spread) without re-rendering the whole plan
+              // Only update tick-driven fields without re-rendering the whole plan
               return {
                 ...currentPlan,
                 marketData: {
                   ...currentPlan.marketData,
+                  close: transformedData.marketData?.last,  // Forming bar's close = last price
                   bid: transformedData.marketData?.bid,
                   ask: transformedData.marketData?.ask,
                   last: transformedData.marketData?.last,
@@ -239,12 +345,27 @@ const TradingPlan = () => {
           return prev;
         });
       } else if (message.type === 'trade_log') {
-        // Append crossing logs to current plan
+        // Append crossing logs to current plan (with deduplication)
         setPlanData((prev) => {
           if (!prev) return prev;
+          const existingLogs = prev.tradeLogs || [];
+          const newLogs = message.logs || [];
+
+          // Deduplicate by creating a unique key from time + type + message
+          const existingKeys = new Set(
+            existingLogs.map((log) => `${log.time}|${log.type}|${log.message}`)
+          );
+          const uniqueNewLogs = newLogs.filter(
+            (log) => !existingKeys.has(`${log.time}|${log.type}|${log.message}`)
+          );
+
+          if (uniqueNewLogs.length === 0) {
+            return prev; // No new unique logs
+          }
+
           return {
             ...prev,
-            tradeLogs: [...(prev.tradeLogs || []), ...message.logs],
+            tradeLogs: [...existingLogs, ...uniqueNewLogs],
           };
         });
       } else if (message.type === 'calculated_values_subscribed') {
@@ -436,7 +557,7 @@ const TradingPlan = () => {
                 {wsConnected ? <Wifi size={18} className="animate-pulse" /> : <WifiOff size={18} />}
                 <span className="font-semibold">LIVE MODE</span>
                 {wsConnected && <span className="text-xs text-green-500">• Connected</span>}
-                {planData?.timestamp && <span className="text-xs text-green-600 ml-1">| Bar: {planData.timestamp}</span>}
+                {planData?.formingBarTimestamp && <span className="text-xs text-green-600 ml-1">| Monitoring: {planData.formingBarTimestamp}</span>}
               </>
             ) : (
               <>
@@ -704,7 +825,7 @@ const TradingPlanDiagram = ({ data }) => {
                   className="text-center text-sm font-bold text-gray-900 p-2"
                   style={{ background: 'linear-gradient(to right, #fbbf24, #f59e0b)' }}
                 >
-                  {data.timeframe} TRADING PLAN
+                  {data.formingBarTimestamp ? `${data.formingBarTimestamp.slice(11, 16)}` : ''} {data.timeframe} TRADING PLAN
                 </th>
               </tr>
 

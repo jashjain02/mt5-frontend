@@ -28,9 +28,17 @@ import ValuesPage from '../components/ValuesPage';
 import TradingPlan from '../components/TradingPlan';
 
 const Dashboard = ({ onLogout }) => {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  // Persist active tab in localStorage so it survives page refresh
+  const [activeTab, setActiveTab] = useState(() => {
+    return localStorage.getItem('activeTab') || 'dashboard';
+  });
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [mt5Status, setMt5Status] = useState({ connected: false, checking: true });
+
+  // Save active tab to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('activeTab', activeTab);
+  }, [activeTab]);
 
   // Check MT5 connection status on mount
   useEffect(() => {
