@@ -798,6 +798,39 @@ const TradingPlanDiagram = ({ data }) => {
   const rcMiddleRows = calculateMiddleValueRows(data.rc.rows, FIB_LEVELS.length);
   const fcMiddleRows = calculateMiddleValueRows(data.fc.rows, FIB_LEVELS.length);
 
+  // Helper to render UTP/DTP price marker row
+  const renderPriceMarker = (marker, key) => {
+    if (!marker?.price) return null;
+
+    return (
+      <tr key={key}>
+        {FIB_LEVELS.map((_, colIdx) => {
+          const isCenter = marker.section === 'center';
+          const isMarkerStart = marker.column >= 0 && colIdx === marker.column;
+          const isMarkerEnd = marker.column >= 0 && colIdx === marker.column + 1;
+
+          // Skip the second yellow cell — it's merged via colSpan on the first
+          if (isMarkerEnd) return null;
+
+          return (
+            <td
+              key={`${key}-${colIdx}`}
+              colSpan={isMarkerStart ? 2 : 1}
+              className={`text-[11px] font-mono text-center p-1 ${
+                isMarkerStart ? 'bg-yellow-200 text-yellow-900 font-bold' :
+                (isCenter && colIdx === 0) ? 'bg-yellow-200 text-yellow-900 font-bold' : ''
+              }`}
+            >
+              {isMarkerStart || (isCenter && colIdx === 0)
+                ? `${marker.label}: ${formatPrice(marker.price)}`
+                : ''}
+            </td>
+          );
+        })}
+      </tr>
+    );
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -844,6 +877,9 @@ const TradingPlanDiagram = ({ data }) => {
             </thead>
 
             <tbody>
+              {/* ===== UTP MARKER (above RC if in RC section) ===== */}
+              {data.utp?.section === 'rc' && renderPriceMarker(data.utp, 'utp-rc')}
+
               {/* ===== RC (Rising Channel) SECTION ===== */}
               {data.rc.rows.map((row, rowIdx) => (
                 <tr key={`rc-${rowIdx}`}>
@@ -868,9 +904,21 @@ const TradingPlanDiagram = ({ data }) => {
                 </tr>
               ))}
 
+              {/* ===== DTP MARKER (below RC if in RC section - crossed up) ===== */}
+              {data.dtp?.section === 'rc' && renderPriceMarker(data.dtp, 'dtp-rc')}
+
               {/* ===== SPACER ROW AFTER RC ===== */}
               <tr>
-                <td colSpan={9} className="bg-white h-12" />
+                <td colSpan={9} className="bg-white h-6" />
+              </tr>
+
+              {/* ===== CENTER MARKERS (UTP/DTP if in center) ===== */}
+              {data.utp?.section === 'center' && renderPriceMarker(data.utp, 'utp-center')}
+              {data.dtp?.section === 'center' && renderPriceMarker(data.dtp, 'dtp-center')}
+
+              {/* ===== SPACER ROW BEFORE MIDDLE SECTION ===== */}
+              <tr>
+                <td colSpan={9} className="bg-white h-6" />
               </tr>
 
               {/* ===== MIDDLE REFERENCE SECTION ===== */}
@@ -958,6 +1006,12 @@ const TradingPlanDiagram = ({ data }) => {
                   })}
                 </tr>
               ))}
+
+              {/* ===== UTP MARKER (below FC if in FC section) ===== */}
+              {data.utp?.section === 'fc' && renderPriceMarker(data.utp, 'utp-fc')}
+
+              {/* ===== DTP MARKER (below FC if in FC section) ===== */}
+              {data.dtp?.section === 'fc' && renderPriceMarker(data.dtp, 'dtp-fc')}
             </tbody>
           </table>
         </div>
