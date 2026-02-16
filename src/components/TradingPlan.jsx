@@ -155,42 +155,21 @@ const TradingPlan = () => {
     }
   };
 
-  // Helper to calculate the current forming bar's timestamp based on timeframe
-  // This is the bar that's currently being monitored (not yet complete)
-  const calculateFormingBarTimestamp = (timeframe) => {
-    const now = new Date();
-    // Get current hour in EET (broker timezone = UTC+2)
-    // Note: This is simplified - in production, consider DST handling
-    const utcHours = now.getUTCHours();
-    const eetHours = (utcHours + 2) % 24;
-
-    let barHour;
-    switch (timeframe) {
-      case 'H1':
-        barHour = eetHours;
-        break;
-      case 'H4':
-        barHour = Math.floor(eetHours / 4) * 4;
-        break;
-      case 'H5':
-        barHour = Math.floor(eetHours / 5) * 5;
-        break;
-      default:
-        barHour = eetHours;
-    }
-
-    // Build the timestamp string in YYYY-MM-DD HH:MM:SS format (EET)
-    const year = now.getUTCFullYear();
-    const month = String(now.getUTCMonth() + 1).padStart(2, '0');
-    // Handle day rollover when converting to EET
-    let day = now.getUTCDate();
-    if (utcHours + 2 >= 24) {
-      day += 1;
-    }
-    const dayStr = String(day).padStart(2, '0');
-    const hourStr = String(barHour).padStart(2, '0');
-
-    return `${year}-${month}-${dayStr} ${hourStr}:00:00`;
+  // Derive the forming bar's timestamp from the completed bar's timestamp
+  // by adding one timeframe period. This avoids client-side timezone guessing
+  // since the completed bar's timestamp comes directly from the backend DB.
+  const getNextBarTimestamp = (completedTimestamp, timeframe) => {
+    if (!completedTimestamp) return null;
+    const date = new Date(completedTimestamp.replace(' ', 'T'));
+    const hours = { H1: 1, H4: 4, H5: 5, D1: 24, W1: 168 }[timeframe] || 1;
+    date.setHours(date.getHours() + hours);
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    const h = String(date.getHours()).padStart(2, '0');
+    const min = String(date.getMinutes()).padStart(2, '0');
+    const s = String(date.getSeconds()).padStart(2, '0');
+    return `${y}-${m}-${d} ${h}:${min}:${s}`;
   };
 
   // Fetch latest trading plan data (for live mode)
@@ -213,9 +192,9 @@ const TradingPlan = () => {
         const transformedData = transformApiDataToTradingPlan(completedBar);
         setApiData(transformedData);
 
-        // Calculate the FORMING bar's timestamp (current monitoring period)
+        // Derive the FORMING bar's timestamp from the completed bar's timestamp
         // Trade logs are stored with this timestamp (the bar where crossings occur)
-        const formingBarTs = calculateFormingBarTimestamp(selectedTimeframe);
+        const formingBarTs = getNextBarTimestamp(completedBar.timestamp_uk_formatted, selectedTimeframe);
 
         // Store the forming bar timestamp for display (the monitoring period)
         transformedData.formingBarTimestamp = formingBarTs;
@@ -288,27 +267,28 @@ const TradingPlan = () => {
                          lastFormingBarTimestampRef.current !== formingBarTimestamp;
         lastFormingBarTimestampRef.current = formingBarTimestamp;
 
-        // If new bar started, refresh to get the newly completed bar's RC/FC levels
-        if (isNewBar) {
-          loadLatestPlan();
-        }
-
         // Only update the displayed plan when in live mode
         // Don't overwrite historical data the user is viewing
         setIsLiveMode((prev) => {
           if (prev) {
-            // Only update marketData (tick info), not RC/FC levels
-            // RC/FC levels come from previous completed bar (via loadLatestPlan)
             setPlanData((currentPlan) => {
               if (!currentPlan) return currentPlan;
+
+              if (isNewBar) {
+                // New bar: update the FULL plan from WebSocket data immediately
+                // The backend now sends complete calculated values (RC/FC + abs_range, buffer, jgd, jwd, d_pat, close)
+                // This ensures the UI always shows correct data even if the DB is stale
+                return {
+                  ...transformedData,
+                  formingBarTimestamp: currentPlan.formingBarTimestamp,
+                  tradeLogs: [],  // Reset for new bar
+                };
+              }
+
               const d = message.data;
               const highChanged = d.high !== currentPlan.marketData?.high;
               const lowChanged = d.low !== currentPlan.marketData?.low;
 
-              if (isNewBar) {
-                // New bar: reset trade logs, keep current RC/FC levels until loadLatestPlan completes
-                return { ...currentPlan, tradeLogs: [] };
-              }
               if (highChanged || lowChanged) {
                 // Update marketData from current forming bar, not RC/FC levels
                 return {
@@ -344,29 +324,33 @@ const TradingPlan = () => {
           // Never auto-switch to live mode from WebSocket; preserve current mode
           return prev;
         });
+
+        // If new bar started, also reload from API as backup (for trade logs)
+        if (isNewBar) {
+          loadLatestPlan();
+        }
       } else if (message.type === 'trade_log') {
-        // Append crossing logs to current plan (with deduplication)
-        setPlanData((prev) => {
-          if (!prev) return prev;
-          const existingLogs = prev.tradeLogs || [];
-          const newLogs = message.logs || [];
+        // Only append live trade logs when in live mode
+        setIsLiveMode((prev) => {
+          if (prev) {
+            setPlanData((prevPlan) => {
+              if (!prevPlan) return prevPlan;
+              const existingLogs = prevPlan.tradeLogs || [];
+              const newLogs = message.logs || [];
 
-          // Deduplicate by creating a unique key from time + type + message
-          const existingKeys = new Set(
-            existingLogs.map((log) => `${log.time}|${log.type}|${log.message}`)
-          );
-          const uniqueNewLogs = newLogs.filter(
-            (log) => !existingKeys.has(`${log.time}|${log.type}|${log.message}`)
-          );
+              // Deduplicate by creating a unique key from time + type + message
+              const existingKeys = new Set(
+                existingLogs.map((log) => `${log.time}|${log.type}|${log.message}`)
+              );
+              const uniqueNewLogs = newLogs.filter(
+                (log) => !existingKeys.has(`${log.time}|${log.type}|${log.message}`)
+              );
 
-          if (uniqueNewLogs.length === 0) {
-            return prev; // No new unique logs
+              if (uniqueNewLogs.length === 0) return prevPlan;
+              return { ...prevPlan, tradeLogs: [...existingLogs, ...uniqueNewLogs] };
+            });
           }
-
-          return {
-            ...prev,
-            tradeLogs: [...existingLogs, ...uniqueNewLogs],
-          };
+          return prev;
         });
       } else if (message.type === 'calculated_values_subscribed') {
         console.log('Subscribed to calculated values:', message);
@@ -877,8 +861,9 @@ const TradingPlanDiagram = ({ data }) => {
             </thead>
 
             <tbody>
-              {/* ===== UTP MARKER (above RC if in RC section) ===== */}
+              {/* ===== UTP/MUTP MARKERS (above RC if in RC section) ===== */}
               {data.utp?.section === 'rc' && renderPriceMarker(data.utp, 'utp-rc')}
+              {data.mutp?.section === 'rc' && renderPriceMarker(data.mutp, 'mutp-rc')}
 
               {/* ===== RC (Rising Channel) SECTION ===== */}
               {data.rc.rows.map((row, rowIdx) => (
@@ -904,17 +889,20 @@ const TradingPlanDiagram = ({ data }) => {
                 </tr>
               ))}
 
-              {/* ===== DTP MARKER (below RC if in RC section - crossed up) ===== */}
+              {/* ===== DTP/MDTP MARKERS (below RC if in RC section) ===== */}
               {data.dtp?.section === 'rc' && renderPriceMarker(data.dtp, 'dtp-rc')}
+              {data.mdtp?.section === 'rc' && renderPriceMarker(data.mdtp, 'mdtp-rc')}
 
               {/* ===== SPACER ROW AFTER RC ===== */}
               <tr>
                 <td colSpan={9} className="bg-white h-6" />
               </tr>
 
-              {/* ===== CENTER MARKERS (UTP/DTP if in center) ===== */}
+              {/* ===== CENTER MARKERS (UTP/DTP/MUTP/MDTP if in center) ===== */}
               {data.utp?.section === 'center' && renderPriceMarker(data.utp, 'utp-center')}
+              {data.mutp?.section === 'center' && renderPriceMarker(data.mutp, 'mutp-center')}
               {data.dtp?.section === 'center' && renderPriceMarker(data.dtp, 'dtp-center')}
+              {data.mdtp?.section === 'center' && renderPriceMarker(data.mdtp, 'mdtp-center')}
 
               {/* ===== SPACER ROW BEFORE MIDDLE SECTION ===== */}
               <tr>
@@ -928,9 +916,9 @@ const TradingPlanDiagram = ({ data }) => {
                 <td colSpan={2} className="bg-green-300 text-[10px] font-bold text-gray-900 p-1 text-center">ABS-RANGE</td>
                 <td className="bg-green-300 text-[10px] font-bold text-gray-900 p-1 text-center">BUFFER</td>
                 <td className="bg-green-300 text-[10px] font-bold text-gray-900 p-1 text-center">PREV CLOSE</td>
-                {/* Empty cols 5-7 */}
-                <td colSpan={3} className="bg-white p-0.5" />
-                {/* Reference headers: BDP-WDP, 2+2 at fib cols 8,9 */}
+                {/* Empty cols - adjusts based on number of reference columns */}
+                <td colSpan={5 - data.referenceLevels.headers.length} className="bg-white p-0.5" />
+                {/* Reference headers (BDP-WDP, d_pat columns) */}
                 {data.referenceLevels.headers.map((header) => (
                   <td key={header} className="bg-green-300 text-[10px] font-bold text-gray-900 p-1 text-center">
                     {header}
@@ -950,9 +938,9 @@ const TradingPlanDiagram = ({ data }) => {
                 <td className="bg-green-100 text-[11px] font-mono font-bold text-center p-1 text-green-900">
                   {formatPrice(data.middleValues?.prevClose)}
                 </td>
-                {/* Empty cols 5-7 */}
-                <td colSpan={3} className="bg-white p-0.5" />
-                {/* First row values for BDP-WDP, 2+2 */}
+                {/* Empty cols - adjusts based on number of reference columns */}
+                <td colSpan={5 - data.referenceLevels.headers.length} className="bg-white p-0.5" />
+                {/* First row values for reference columns */}
                 {data.referenceLevels.rows[0].map((val, i) => (
                   <td
                     key={`ref-0-${i}`}
@@ -965,9 +953,9 @@ const TradingPlanDiagram = ({ data }) => {
 
               {/* Second row for BDP-WDP/2+2 only */}
               <tr>
-                {/* Empty cols 1-7 */}
-                <td colSpan={7} className="bg-white p-0.5" />
-                {/* Second row values for BDP-WDP, 2+2 */}
+                {/* Empty cols - adjusts based on number of reference columns */}
+                <td colSpan={9 - data.referenceLevels.headers.length} className="bg-white p-0.5" />
+                {/* Second row values for reference columns */}
                 {data.referenceLevels.rows[1].map((val, i) => (
                   <td
                     key={`ref-1-${i}`}
@@ -1007,11 +995,13 @@ const TradingPlanDiagram = ({ data }) => {
                 </tr>
               ))}
 
-              {/* ===== UTP MARKER (below FC if in FC section) ===== */}
+              {/* ===== UTP/MUTP MARKERS (below FC if in FC section) ===== */}
               {data.utp?.section === 'fc' && renderPriceMarker(data.utp, 'utp-fc')}
+              {data.mutp?.section === 'fc' && renderPriceMarker(data.mutp, 'mutp-fc')}
 
-              {/* ===== DTP MARKER (below FC if in FC section) ===== */}
+              {/* ===== DTP/MDTP MARKERS (below FC if in FC section) ===== */}
               {data.dtp?.section === 'fc' && renderPriceMarker(data.dtp, 'dtp-fc')}
+              {data.mdtp?.section === 'fc' && renderPriceMarker(data.mdtp, 'mdtp-fc')}
             </tbody>
           </table>
         </div>

@@ -126,7 +126,7 @@ export const transformApiDataToTradingPlan = (apiRecord) => {
     middleValues: {
       absRange: apiRecord.abs_range,
       buffer: apiRecord.buffer,
-      prevClose: apiRecord.prev_close,
+      prevClose: apiRecord.close,
     },
 
     // Whether this is a forming (open) bar or a completed bar
@@ -146,7 +146,7 @@ export const transformApiDataToTradingPlan = (apiRecord) => {
       askHigh: tick?.ask_high ?? null,
       askLow: tick?.ask_low ?? null,
       open: apiRecord.open,
-      prevClose: apiRecord.prev_close,
+      prevClose: apiRecord.close,
       spread: tick?.spread ?? null,
       change: apiRecord.close && apiRecord.prev_close ? apiRecord.close - apiRecord.prev_close : null,
     },
@@ -177,14 +177,58 @@ export const transformApiDataToTradingPlan = (apiRecord) => {
       return { price, ...position, label: 'DTP' };
     })(),
 
-    // Reference levels - BDP-WDP uses jgd[1]/jwd[1], 2+2 uses jgd[0]/jwd[0]
-    referenceLevels: {
-      headers: ['BDP-WDP', '2+2'],
-      rows: [
-        [apiRecord.jgd?.[1] ?? null, apiRecord.jgd?.[0] ?? null],
-        [apiRecord.jwd?.[1] ?? null, apiRecord.jwd?.[0] ?? null]
-      ]
-    },
+    // MUTP (Micro Uptrend Price) = jwd[0] — shown for "2+1" and "3+1"
+    mutp: (() => {
+      const dPat = apiRecord.d_pat;
+      if (dPat === '2+1' || dPat === '3+1') {
+        const price = apiRecord.jwd?.[0] ?? null;
+        const position = findPricePosition(price, rcRows, fcRows);
+        return { price, ...position, label: 'MUTP' };
+      }
+      return null;
+    })(),
+
+    // MDTP (Micro Downtrend Price) = jgd[1] — shown for "2+2"
+    mdtp: (() => {
+      const dPat = apiRecord.d_pat;
+      if (dPat === '2+2') {
+        const price = apiRecord.jgd?.[1] ?? null;
+        const position = findPricePosition(price, rcRows, fcRows);
+        return { price, ...position, label: 'MDTP' };
+      }
+      return null;
+    })(),
+
+    // Reference levels - layout varies by d_pat pattern
+    referenceLevels: (() => {
+      const dPat = apiRecord.d_pat;
+      if (dPat === '3+1') {
+        return {
+          headers: ['BDP-WDP', 'DP', '3+1'],
+          rows: [
+            [apiRecord.jgd?.[1] ?? null, apiRecord.jwd?.[0] ?? null, apiRecord.jgd?.[0] ?? null],
+            [apiRecord.jwd?.[1] ?? null, null, null],
+          ],
+        };
+      }
+      if (dPat === '2+1') {
+        return {
+          headers: ['BDP-WDP', '2+1'],
+          rows: [
+            [apiRecord.jgd?.[1] ?? null, apiRecord.jgd?.[0] ?? null],
+            [apiRecord.jwd?.[1] ?? null, null],
+          ],
+        };
+      }
+      // "2+2" (default)
+      return {
+        headers: ['BDP-WDP', dPat],
+        rows: [
+          [apiRecord.jgd?.[1] ?? null, apiRecord.jgd?.[0] ?? null],
+          [apiRecord.jwd?.[1] ?? null, apiRecord.jwd?.[0] ?? null],
+        ],
+      };
+    })(),
 
     // Trade logs (populated from API or WebSocket)
     tradeLogs: apiRecord.trade_logs || [],

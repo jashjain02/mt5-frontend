@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard,
@@ -18,13 +18,12 @@ import {
   Wifi,
   WifiOff,
   Activity,
-  Calculator,
   FileSpreadsheet,
 } from 'lucide-react';
 import api from '../services/api';
 import MarketWatch from '../components/MarketWatch';
 import TicksModal from '../components/TicksModal';
-import ValuesPage from '../components/ValuesPage';
+import CalculatedValuesTable from '../components/CalculatedValuesTable';
 import TradingPlan from '../components/TradingPlan';
 
 const Dashboard = ({ onLogout }) => {
@@ -525,14 +524,22 @@ const HistoricalDataContent = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [showTicksModal, setShowTicksModal] = useState(false);
-  const [showValuesPage, setShowValuesPage] = useState(false);
 
   // Cache all timeframe data - key is `${symbol}_${timeframe}`
   const [dataCache, setDataCache] = useState({});
   const [loadingProgress, setLoadingProgress] = useState({ current: 0, total: 0 });
   const [lastRefreshTime, setLastRefreshTime] = useState(null);
 
+  // WebSocket state for live calculated values
+  const [wsConnected, setWsConnected] = useState(false);
+  const [wsStatus, setWsStatus] = useState('disconnected');
+  const wsRef = useRef(null);
+  const reconnectTimeoutRef = useRef(null);
+
   const timeframes = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'H5', 'D1', 'W1', 'MN1'];
+
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+  const WS_BASE_URL = API_BASE_URL.replace('http', 'ws');
 
   // Helper to process OHLCV data with change calculation
   const processOHLCVData = (data) => {
@@ -547,31 +554,75 @@ const HistoricalDataContent = () => {
     });
   };
 
-  // Fetch all timeframes for a symbol in parallel
+  // Normalize timestamp for matching OHLCV with calculated values
+  const normalizeTimestamp = (ts) => {
+    if (!ts) return '';
+    // Strip timezone, replace T with space, take first 19 chars: "YYYY-MM-DD HH:MM:SS"
+    return ts.replace('T', ' ').substring(0, 19);
+  };
+
+  // Merge OHLCV data with calculated values by matching timestamps
+  // Note: broker_to_uk_time is a no-op, so timestamp_formatted and timestamp_uk_formatted
+  // are the same broker time in the same "YYYY-MM-DD HH:MM:SS" format
+  const mergeData = (ohlcvData, valuesData) => {
+    if (!valuesData || valuesData.length === 0) return ohlcvData;
+
+    // Build a map of calculated values keyed by their formatted timestamp
+    const valuesMap = {};
+    valuesData.forEach(v => {
+      const key = v.timestamp_formatted || v.timestamp_uk_formatted || normalizeTimestamp(v.timestamp_uk);
+      valuesMap[key] = v;
+    });
+
+    return ohlcvData.map(row => {
+      // Match using timestamp_formatted (always populated, same broker time as calculated values)
+      const ts = row.timestamp_formatted || normalizeTimestamp(row.timestamp);
+      const calcValues = valuesMap[ts];
+      if (calcValues) {
+        // OHLCV first (has open, volume, change), then overlay calculated values (atr, range, jgd, etc.)
+        return { ...row, ...calcValues };
+      }
+      return row;
+    });
+  };
+
+  // Fetch all timeframes for a symbol in parallel (OHLCV + Calculated Values)
   const fetchAllTimeframesForSymbol = async (symbol) => {
     setIsLoading(true);
     setLoadingProgress({ current: 0, total: timeframes.length });
     setError('');
 
     try {
-      // Fetch all timeframes in parallel
-      const promises = timeframes.map(tf =>
+      // Fetch both OHLCV and calculated values for all timeframes in parallel
+      const ohlcvPromises = timeframes.map(tf =>
         api.getOHLCVData(symbol, tf, { limit: 100, offset: 0, sort: 'desc' })
       );
+      const valuesPromises = timeframes.map(tf =>
+        api.getCalculatedValues(symbol, tf, { limit: 100 }).catch(() => ({ success: false, data: [] }))
+      );
 
-      const results = await Promise.all(promises);
+      const [ohlcvResults, valuesResults] = await Promise.all([
+        Promise.all(ohlcvPromises),
+        Promise.all(valuesPromises),
+      ]);
 
-      // Build cache object
+      // Build cache object with merged data
       const newCache = {};
-      results.forEach((response, index) => {
-        const tf = timeframes[index];
+      timeframes.forEach((tf, index) => {
         const cacheKey = `${symbol}_${tf}`;
-        if (response.success) {
+        const ohlcvResponse = ohlcvResults[index];
+        const valuesResponse = valuesResults[index];
+
+        if (ohlcvResponse.success) {
+          const processedOhlcv = processOHLCVData(ohlcvResponse.data);
+          const valuesData = valuesResponse.success ? valuesResponse.data || [] : [];
+          const merged = mergeData(processedOhlcv, valuesData);
+
           newCache[cacheKey] = {
-            data: processOHLCVData(response.data),
-            total: response.total,
-            offset: response.offset,
-            limit: response.limit,
+            data: merged,
+            total: ohlcvResponse.total,
+            offset: ohlcvResponse.offset,
+            limit: ohlcvResponse.limit,
           };
         }
         setLoadingProgress(prev => ({ ...prev, current: index + 1 }));
@@ -634,6 +685,99 @@ const HistoricalDataContent = () => {
     return () => clearInterval(refreshInterval);
   }, [selectedSymbol, dataCache]);
 
+  // WebSocket connection for live calculated values updates
+  const connectWebSocket = useCallback(() => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) return;
+    setWsStatus('connecting');
+
+    try {
+      const ws = new WebSocket(`${WS_BASE_URL}/calculated-values/ws`);
+
+      ws.onopen = () => {
+        setWsConnected(true);
+        setWsStatus('connected');
+        ws.send(JSON.stringify({
+          action: 'subscribe',
+          symbol: selectedSymbol,
+          timeframe: activeTimeframe
+        }));
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          if (message.type === 'calculated_values') {
+            const newCalcData = message.data;
+            // Merge new calculated values into the cache for the active timeframe
+            setDataCache(prev => {
+              const key = `${selectedSymbol}_${activeTimeframe}`;
+              const existing = prev[key];
+              if (!existing) return prev;
+
+              // Check if this timestamp already exists
+              const exists = existing.data.some(d =>
+                (d.timestamp_uk || d.timestamp_formatted) === (newCalcData.timestamp_uk_formatted || newCalcData.timestamp_uk)
+              );
+              if (exists) return prev;
+
+              // Prepend new row (calculated values only, no OHLCV open/volume yet)
+              const newRow = { ...newCalcData, _isNew: true };
+              const updatedData = [newRow, ...existing.data.map(r => ({ ...r, _isNew: false }))].slice(0, 100);
+
+              return {
+                ...prev,
+                [key]: { ...existing, data: updatedData }
+              };
+            });
+          }
+        } catch (err) {
+          console.error('Error parsing WebSocket message:', err);
+        }
+      };
+
+      ws.onclose = () => {
+        setWsConnected(false);
+        setWsStatus('disconnected');
+        wsRef.current = null;
+        if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = setTimeout(() => connectWebSocket(), 3000);
+      };
+
+      ws.onerror = () => setWsStatus('error');
+      wsRef.current = ws;
+    } catch (err) {
+      console.error('Failed to create WebSocket:', err);
+      setWsStatus('error');
+    }
+  }, [selectedSymbol, activeTimeframe]);
+
+  // Connect WebSocket on mount
+  useEffect(() => {
+    connectWebSocket();
+    const pingInterval = setInterval(() => {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ action: 'ping' }));
+      }
+    }, 30000);
+
+    return () => {
+      clearInterval(pingInterval);
+      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+      if (wsRef.current) { wsRef.current.close(); wsRef.current = null; }
+    };
+  }, []);
+
+  // Resubscribe when symbol or timeframe changes
+  useEffect(() => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        action: 'subscribe',
+        symbol: selectedSymbol,
+        timeframe: activeTimeframe
+      }));
+    }
+  }, [selectedSymbol, activeTimeframe]);
+
   // When symbol changes, fetch all timeframes for that symbol (if not cached)
   const handleSymbolChange = async (symbol) => {
     setSelectedSymbol(symbol);
@@ -670,13 +814,19 @@ const HistoricalDataContent = () => {
   const pagination = { total: currentData.total, offset: currentData.offset, limit: currentData.limit };
 
   const formatTimestamp = (row) => {
-    // Use pre-formatted timestamp from API if available (no timezone conversion)
+    // Prefer broker time formatted timestamp
     if (row.timestamp_formatted) {
       return row.timestamp_formatted;
     }
+    // Fallback for rows with only UK timestamp (e.g. from WebSocket)
+    if (row.timestamp_uk_formatted) {
+      return row.timestamp_uk_formatted;
+    }
 
-    // Fallback: format the timestamp as-is (broker time)
-    const date = new Date(row.timestamp);
+    // Fallback: format the raw timestamp
+    const ts = row.timestamp || row.timestamp_uk;
+    if (!ts) return '-';
+    const date = new Date(ts);
     return date.toLocaleString('en-GB', {
       year: 'numeric',
       month: '2-digit',
@@ -714,25 +864,15 @@ const HistoricalDataContent = () => {
     formatTimestamp(row).toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Show Values Page if toggled
-  if (showValuesPage) {
-    return (
-      <ValuesPage
-        onBack={() => setShowValuesPage(false)}
-        initialSymbol={selectedSymbol || 'XAUUSD'}
-      />
-    );
-  }
-
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-2">Data</h1>
           <p className="text-gray-500">
-            View historical OHLCV data across different timeframes.
+            OHLCV data with calculated values across different timeframes.
             <span className="ml-2 text-xs text-gray-400">
-              All times displayed in UK timezone (GMT/BST)
+              All times displayed in broker time (EET/UTC+2)
             </span>
           </p>
           {lastRefreshTime && (
@@ -757,15 +897,21 @@ const HistoricalDataContent = () => {
             <Activity size={18} />
             Ticks
           </motion.button>
-          <motion.button
-            onClick={() => setShowValuesPage(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            <Calculator size={18} />
-            Values
-          </motion.button>
+          <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs ${
+            wsConnected
+              ? 'bg-green-50 text-green-700'
+              : wsStatus === 'connecting'
+                ? 'bg-yellow-50 text-yellow-700'
+                : 'bg-red-50 text-red-700'
+          }`}>
+            {wsConnected ? (
+              <><Wifi size={14} /><span className="font-medium">Live</span></>
+            ) : wsStatus === 'connecting' ? (
+              <><Loader2 size={14} className="animate-spin" /><span className="font-medium">Connecting...</span></>
+            ) : (
+              <><WifiOff size={14} /><span className="font-medium">Offline</span></>
+            )}
+          </div>
           <motion.button
             onClick={handleRefresh}
             disabled={isLoading}
@@ -866,7 +1012,7 @@ const HistoricalDataContent = () => {
         </div>
       )}
 
-      {/* Data Table */}
+      {/* Combined Data Table (OHLCV + Calculated Values) */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -878,59 +1024,21 @@ const HistoricalDataContent = () => {
           <h2 className="text-lg font-semibold text-gray-900">
             {selectedSymbol} - {activeTimeframe} Timeframe
           </h2>
-        </div>
-        <div className="overflow-x-auto">
-          {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-12">
-              <Loader2 className="animate-spin text-blue-500" size={32} />
-              <span className="mt-3 text-gray-500">
-                {loadingProgress.total > 0
-                  ? `Loading timeframes... ${loadingProgress.current}/${loadingProgress.total}`
-                  : 'Loading data...'}
-              </span>
-            </div>
-          ) : filteredData.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-gray-500">
-              <span className="text-4xl mb-3">📊</span>
-              <p>No data available for {selectedSymbol} - {activeTimeframe}</p>
-              <p className="text-sm mt-1">Try selecting a different symbol or timeframe</p>
-            </div>
-          ) : (
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-200/50">
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Timestamp</th>
-                  <th className="text-right py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Open</th>
-                  <th className="text-right py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">High</th>
-                  <th className="text-right py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Low</th>
-                  <th className="text-right py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Close</th>
-                  <th className="text-right py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Volume</th>
-                  <th className="text-right py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Change %</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredData.map((row, index) => (
-                  <tr
-                    key={index}
-                    className="border-b border-gray-100/50 last:border-0 hover:bg-white/50 transition-colors"
-                  >
-                    <td className="py-3 px-4 text-sm text-gray-600 font-mono">{formatTimestamp(row)}</td>
-                    <td className="py-3 px-4 text-sm text-gray-900 text-right font-medium">{formatPrice(row.open)}</td>
-                    <td className="py-3 px-4 text-sm text-green-600 text-right font-medium">{formatPrice(row.high)}</td>
-                    <td className="py-3 px-4 text-sm text-red-600 text-right font-medium">{formatPrice(row.low)}</td>
-                    <td className="py-3 px-4 text-sm text-gray-900 text-right font-medium">{formatPrice(row.close)}</td>
-                    <td className="py-3 px-4 text-sm text-gray-500 text-right">{row.volume?.toLocaleString() || '-'}</td>
-                    <td className={`py-3 px-4 text-sm text-right font-semibold ${
-                      row.changePositive ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                      {row.change}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          {filteredData.length > 0 && (
+            <span className="text-xs text-gray-500">
+              {filteredData.length} records {wsConnected && <span className="text-green-600">• Live</span>}
+            </span>
           )}
         </div>
+        <CalculatedValuesTable
+          data={filteredData}
+          isLoading={isLoading}
+          symbol={selectedSymbol}
+          timeframe={activeTimeframe}
+          loadingProgress={loadingProgress}
+          formatTimestamp={formatTimestamp}
+          formatPrice={formatPrice}
+        />
       </motion.div>
 
       <TicksModal
