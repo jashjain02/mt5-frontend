@@ -3,6 +3,7 @@
  * Transforms calculated values API response to Trading Plan format
  */
 
+
 const FIB_LEVELS = [
   '14.60%', '23.60%', '38.20%', '61.80%', '100.00%',
   '138.20%', '161.80%', '261.80%', '423.60%'
@@ -110,8 +111,8 @@ export const transformApiDataToTradingPlan = (apiRecord) => {
   return {
     symbol: 'XAUUSD',
     timeframe: apiRecord.timeframe || 'H1',
-    timestamp: apiRecord.timestamp_uk_formatted || '',
-    date: apiRecord.timestamp_uk_formatted ? apiRecord.timestamp_uk_formatted.split(' ')[0] : '',
+    timestamp: apiRecord.timestamp_broker_formatted || apiRecord.timestamp_uk_formatted || '',
+    date: (apiRecord.timestamp_broker_formatted || apiRecord.timestamp_uk_formatted || '').split(' ')[0],
 
     // Calculated values for display
     calculatedValues: {
@@ -157,9 +158,10 @@ export const transformApiDataToTradingPlan = (apiRecord) => {
     // Falling Channel
     fc: { rows: fcRows },
 
-    // UTP position (jgd[0]) - Uptrend Price marker
+    // UTP position — pattern column row 1 (col2_r1 for 2+1/2+2, col3_r1 for 3+1)
     utp: (() => {
-      const price = apiRecord.jgd?.[0] ?? null;
+      const rl = apiRecord.reference_levels || {};
+      const price = apiRecord.d_pat === '3+1' ? (rl.col3_r1 ?? null) : (rl.col2_r1 ?? null);
       const position = findPricePosition(price, rcRows, fcRows);
       if (price !== null) {
         console.log(`UTP (${price}) in ${position.section} section, column ${position.column}, between ${position.betweenLevels?.join(' and ') || 'N/A'}`);
@@ -167,9 +169,9 @@ export const transformApiDataToTradingPlan = (apiRecord) => {
       return { price, ...position, label: 'UTP' };
     })(),
 
-    // DTP position (jwd[1]) - Downtrend Price marker
+    // DTP position — BDP-WDP row 2 (bdpwdp_r2)
     dtp: (() => {
-      const price = apiRecord.jwd?.[1] ?? null;
+      const price = apiRecord.reference_levels?.bdpwdp_r2 ?? null;
       const position = findPricePosition(price, rcRows, fcRows);
       if (price !== null) {
         console.log(`DTP (${price}) in ${position.section} section, column ${position.column}, between ${position.betweenLevels?.join(' and ') || 'N/A'}`);
@@ -177,37 +179,38 @@ export const transformApiDataToTradingPlan = (apiRecord) => {
       return { price, ...position, label: 'DTP' };
     })(),
 
-    // MUTP (Micro Uptrend Price) = jwd[0] — shown for "2+1" and "3+1"
+    // MUTP — BDP-WDP row 1 (bdpwdp_r1), shown for "2+1" and "3+1"
     mutp: (() => {
       const dPat = apiRecord.d_pat;
       if (dPat === '2+1' || dPat === '3+1') {
-        const price = apiRecord.jwd?.[0] ?? null;
+        const price = apiRecord.reference_levels?.bdpwdp_r1 ?? null;
         const position = findPricePosition(price, rcRows, fcRows);
         return { price, ...position, label: 'MUTP' };
       }
       return null;
     })(),
 
-    // MDTP (Micro Downtrend Price) = jgd[1] — shown for "2+2"
+    // MDTP — pattern column row 2 (col2_r2), shown for "2+2"
     mdtp: (() => {
       const dPat = apiRecord.d_pat;
       if (dPat === '2+2') {
-        const price = apiRecord.jgd?.[1] ?? null;
+        const price = apiRecord.reference_levels?.col2_r2 ?? null;
         const position = findPricePosition(price, rcRows, fcRows);
         return { price, ...position, label: 'MDTP' };
       }
       return null;
     })(),
 
-    // Reference levels - layout varies by d_pat pattern
+    // Reference levels - layout varies by d_pat pattern, values pre-computed by backend
     referenceLevels: (() => {
       const dPat = apiRecord.d_pat;
+      const rl = apiRecord.reference_levels || {};
       if (dPat === '3+1') {
         return {
           headers: ['BDP-WDP', 'DP', '3+1'],
           rows: [
-            [apiRecord.jgd?.[1] ?? null, apiRecord.jwd?.[0] ?? null, apiRecord.jgd?.[0] ?? null],
-            [apiRecord.jwd?.[1] ?? null, null, null],
+            [rl.bdpwdp_r1 ?? null, rl.col2_r1 ?? null, rl.col3_r1 ?? null],
+            [rl.bdpwdp_r2 ?? null, null, null],
           ],
         };
       }
@@ -215,8 +218,8 @@ export const transformApiDataToTradingPlan = (apiRecord) => {
         return {
           headers: ['BDP-WDP', '2+1'],
           rows: [
-            [apiRecord.jgd?.[1] ?? null, apiRecord.jgd?.[0] ?? null],
-            [apiRecord.jwd?.[1] ?? null, null],
+            [rl.bdpwdp_r1 ?? null, rl.col2_r1 ?? null],
+            [rl.bdpwdp_r2 ?? null, null],
           ],
         };
       }
@@ -224,8 +227,8 @@ export const transformApiDataToTradingPlan = (apiRecord) => {
       return {
         headers: ['BDP-WDP', dPat],
         rows: [
-          [apiRecord.jgd?.[1] ?? null, apiRecord.jgd?.[0] ?? null],
-          [apiRecord.jwd?.[1] ?? null, apiRecord.jwd?.[0] ?? null],
+          [rl.bdpwdp_r1 ?? null, rl.col2_r1 ?? null],
+          [rl.bdpwdp_r2 ?? null, rl.col2_r2 ?? null],
         ],
       };
     })(),

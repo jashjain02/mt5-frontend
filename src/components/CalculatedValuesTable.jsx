@@ -102,8 +102,10 @@ const fibLevels = ['14.60%', '23.60%', '38.20%', '61.80%', '100.00%', '138.20%',
 
 const formatCalcValue = (value) => {
   if (value === null || value === undefined) return '-';
-  if (typeof value === 'number') return value.toFixed(5);
-  return value;
+  // Arrays (e.g. jgd/jwd returned as [current, prev]) — show only current value
+  const v = Array.isArray(value) ? value[0] : value;
+  if (typeof v === 'number') return v.toFixed(5);
+  return v ?? '-';
 };
 
 const CalculatedValuesTable = ({ data, isLoading, symbol, timeframe, loadingProgress, formatTimestamp, formatPrice }) => {

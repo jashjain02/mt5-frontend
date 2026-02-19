@@ -125,8 +125,8 @@ const TradingPlan = () => {
         const transformedData = transformApiDataToTradingPlan(previousBar);
         setApiData(transformedData);
 
-        // Store the selected bar's timestamp as the monitoring period
-        transformedData.formingBarTimestamp = selectedBar.timestamp_uk_formatted;
+        // Store the selected bar's timestamp as the monitoring period (broker time for display)
+        transformedData.formingBarTimestamp = selectedBar.timestamp_broker_formatted || selectedBar.timestamp_uk_formatted;
 
         // Fetch trade logs for the SELECTED bar (that's where logs are stored)
         try {
@@ -193,11 +193,15 @@ const TradingPlan = () => {
         setApiData(transformedData);
 
         // Derive the FORMING bar's timestamp from the completed bar's timestamp
-        // Trade logs are stored with this timestamp (the bar where crossings occur)
+        // Trade logs are stored with this timestamp (the bar where crossings occur) — keep in UTC for API calls
         const formingBarTs = getNextBarTimestamp(completedBar.timestamp_uk_formatted, selectedTimeframe);
 
-        // Store the forming bar timestamp for display (the monitoring period)
-        transformedData.formingBarTimestamp = formingBarTs;
+        // For display, derive from broker time (UTC+3) so the label matches MT5
+        const formingBarTs_display = getNextBarTimestamp(
+          completedBar.timestamp_broker_formatted || completedBar.timestamp_uk_formatted,
+          selectedTimeframe
+        );
+        transformedData.formingBarTimestamp = formingBarTs_display;
 
         // Fetch trade logs for the FORMING bar (crossings happening NOW)
         try {
