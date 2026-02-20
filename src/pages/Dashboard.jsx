@@ -562,12 +562,12 @@ const HistoricalDataContent = () => {
   };
 
   // Merge OHLCV data with calculated values by matching timestamps
-  // Note: broker_to_uk_time is a no-op, so timestamp_formatted and timestamp_uk_formatted
-  // are the same broker time in the same "YYYY-MM-DD HH:MM:SS" format
+  // Uses timestamp_uk_formatted for matching since calculated values store timestamp_uk,
+  // which may differ from broker timestamp_formatted during BST (1 hour offset)
   const mergeData = (ohlcvData, valuesData) => {
     if (!valuesData || valuesData.length === 0) return ohlcvData;
 
-    // Build a map of calculated values keyed by their formatted timestamp
+    // Build a map of calculated values keyed by their timestamp_uk
     const valuesMap = {};
     valuesData.forEach(v => {
       const key = v.timestamp_formatted || v.timestamp_uk_formatted || normalizeTimestamp(v.timestamp_uk);
@@ -575,9 +575,11 @@ const HistoricalDataContent = () => {
     });
 
     return ohlcvData.map(row => {
-      // Match using timestamp_formatted (always populated, same broker time as calculated values)
-      const ts = row.timestamp_formatted || normalizeTimestamp(row.timestamp);
-      const calcValues = valuesMap[ts];
+      // Try timestamp_uk_formatted first (matches calculated values timestamp_uk),
+      // then fall back to timestamp_formatted (broker time) for compatibility
+      const tsUk = row.timestamp_uk_formatted || normalizeTimestamp(row.timestamp_uk);
+      const tsBroker = row.timestamp_formatted || normalizeTimestamp(row.timestamp);
+      const calcValues = valuesMap[tsUk] || valuesMap[tsBroker];
       if (calcValues) {
         // OHLCV first (has open, volume, change), then overlay calculated values (atr, range, jgd, etc.)
         return { ...row, ...calcValues };
