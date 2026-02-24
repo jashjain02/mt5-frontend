@@ -516,19 +516,20 @@ const DashboardContent = () => {
 };
 
 const HistoricalDataContent = () => {
-  const [activeTimeframe, setActiveTimeframe] = useState('M1');
+  const [activeTimeframe, setActiveTimeframe] = useState('D1');
   const [selectedSymbol, setSelectedSymbol] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
   const [isSymbolDropdownOpen, setIsSymbolDropdownOpen] = useState(false);
   const [symbols, setSymbols] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [showTicksModal, setShowTicksModal] = useState(false);
 
-  // Cache all timeframe data - key is `${symbol}_${timeframe}`
+  // Search date range
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
+  // Cache search results - key is `${symbol}_${timeframe}`
   const [dataCache, setDataCache] = useState({});
-  const [loadingProgress, setLoadingProgress] = useState({ current: 0, total: 0 });
-  const [lastRefreshTime, setLastRefreshTime] = useState(null);
 
   // WebSocket state for live calculated values
   const [wsConnected, setWsConnected] = useState(false);
@@ -588,104 +589,80 @@ const HistoricalDataContent = () => {
     });
   };
 
-  // Fetch all timeframes for a symbol in parallel (OHLCV + Calculated Values)
-  const fetchAllTimeframesForSymbol = async (symbol) => {
+  // Search: fetch OHLCV + calculated values for the selected symbol, timeframe, and date range
+  const handleSearch = async () => {
+    if (!selectedSymbol) {
+      setError('Please select a symbol');
+      return;
+    }
+    if (!startDate || !endDate) {
+      setError('Please enter both start and end dates');
+      return;
+    }
+
     setIsLoading(true);
-    setLoadingProgress({ current: 0, total: timeframes.length });
     setError('');
 
     try {
-      // Fetch both OHLCV and calculated values for all timeframes in parallel
-      const ohlcvPromises = timeframes.map(tf =>
-        api.getOHLCVData(symbol, tf, { limit: 100, offset: 0, sort: 'desc' })
-      );
-      const valuesPromises = timeframes.map(tf =>
-        api.getCalculatedValues(symbol, tf, { limit: 100 }).catch(() => ({ success: false, data: [] }))
-      );
+      // Convert datetime-local value to "YYYY-MM-DD HH:MM:SS" format
+      const formatDateParam = (dt) => dt.replace('T', ' ') + ':00';
 
-      const [ohlcvResults, valuesResults] = await Promise.all([
-        Promise.all(ohlcvPromises),
-        Promise.all(valuesPromises),
+      const [ohlcvResponse, valuesResponse] = await Promise.all([
+        api.getOHLCVData(selectedSymbol, activeTimeframe, {
+          startDate: formatDateParam(startDate),
+          endDate: formatDateParam(endDate),
+          limit: 10000,
+          offset: 0,
+          sort: 'desc',
+        }),
+        api.getCalculatedValues(selectedSymbol, activeTimeframe, {
+          startDate: formatDateParam(startDate),
+          endDate: formatDateParam(endDate),
+          limit: 10000,
+        }).catch(() => ({ success: false, data: [] })),
       ]);
 
-      // Build cache object with merged data
-      const newCache = {};
-      timeframes.forEach((tf, index) => {
-        const cacheKey = `${symbol}_${tf}`;
-        const ohlcvResponse = ohlcvResults[index];
-        const valuesResponse = valuesResults[index];
+      if (ohlcvResponse.success) {
+        const processedOhlcv = processOHLCVData(ohlcvResponse.data);
+        const valuesData = valuesResponse.success ? valuesResponse.data || [] : [];
+        const merged = mergeData(processedOhlcv, valuesData);
 
-        if (ohlcvResponse.success) {
-          const processedOhlcv = processOHLCVData(ohlcvResponse.data);
-          const valuesData = valuesResponse.success ? valuesResponse.data || [] : [];
-          const merged = mergeData(processedOhlcv, valuesData);
-
-          newCache[cacheKey] = {
+        const cacheKey = `${selectedSymbol}_${activeTimeframe}`;
+        setDataCache(prev => ({
+          ...prev,
+          [cacheKey]: {
             data: merged,
             total: ohlcvResponse.total,
-            offset: ohlcvResponse.offset,
-            limit: ohlcvResponse.limit,
-          };
-        }
-        setLoadingProgress(prev => ({ ...prev, current: index + 1 }));
-      });
-
-      setDataCache(prev => ({ ...prev, ...newCache }));
-      setLastRefreshTime(new Date());
+          },
+        }));
+      } else {
+        setError('Failed to fetch data');
+      }
     } catch (err) {
       console.error('Failed to fetch data:', err);
       setError('Failed to load data');
     } finally {
       setIsLoading(false);
-      setLoadingProgress({ current: 0, total: 0 });
     }
   };
 
-  // Fetch symbols and all data on mount
+  // Fetch symbols on mount
   useEffect(() => {
-    const initializeData = async () => {
-      setIsLoading(true);
+    const fetchSymbols = async () => {
       try {
         const symbolsResponse = await api.getAvailableSymbols();
         if (symbolsResponse.success && symbolsResponse.symbols && symbolsResponse.symbols.length > 0) {
           setSymbols(symbolsResponse.symbols);
-          const firstSymbol = symbolsResponse.symbols[0].symbol;
-          setSelectedSymbol(firstSymbol);
-
-          // Fetch all timeframes for the first symbol
-          await fetchAllTimeframesForSymbol(firstSymbol);
-        } else {
-          setIsLoading(false);
+          setSelectedSymbol(symbolsResponse.symbols[0].symbol);
         }
       } catch (err) {
-        console.error('Failed to initialize data:', err);
-        setError('Failed to load data');
-        setIsLoading(false);
+        console.error('Failed to fetch symbols:', err);
+        setError('Failed to load symbols');
       }
     };
 
-    initializeData();
+    fetchSymbols();
   }, []);
-
-  // Auto-refresh data every 60 seconds (1 minute)
-  useEffect(() => {
-    if (!selectedSymbol) return;
-
-    const refreshInterval = setInterval(() => {
-      // Silently refresh current symbol data in background
-      const keysToRemove = Object.keys(dataCache).filter(k => k.startsWith(`${selectedSymbol}_`));
-      setDataCache(prev => {
-        const newCache = { ...prev };
-        keysToRemove.forEach(k => delete newCache[k]);
-        return newCache;
-      });
-
-      // Fetch fresh data
-      fetchAllTimeframesForSymbol(selectedSymbol);
-    }, 60000); // 60 seconds
-
-    return () => clearInterval(refreshInterval);
-  }, [selectedSymbol, dataCache]);
 
   // WebSocket connection for live calculated values updates
   const connectWebSocket = useCallback(() => {
@@ -722,13 +699,13 @@ const HistoricalDataContent = () => {
               );
               if (exists) return prev;
 
-              // Prepend new row (calculated values only, no OHLCV open/volume yet)
+              // Prepend new row
               const newRow = { ...newCalcData, _isNew: true };
-              const updatedData = [newRow, ...existing.data.map(r => ({ ...r, _isNew: false }))].slice(0, 100);
+              const updatedData = [newRow, ...existing.data.map(r => ({ ...r, _isNew: false }))];
 
               return {
                 ...prev,
-                [key]: { ...existing, data: updatedData }
+                [key]: { ...existing, data: updatedData, total: existing.total + 1 }
               };
             });
           }
@@ -780,29 +757,9 @@ const HistoricalDataContent = () => {
     }
   }, [selectedSymbol, activeTimeframe]);
 
-  // When symbol changes, fetch all timeframes for that symbol (if not cached)
-  const handleSymbolChange = async (symbol) => {
+  const handleSymbolChange = (symbol) => {
     setSelectedSymbol(symbol);
     setIsSymbolDropdownOpen(false);
-
-    // Check if we have cached data for this symbol
-    const cacheKey = `${symbol}_${activeTimeframe}`;
-    if (!dataCache[cacheKey]) {
-      await fetchAllTimeframesForSymbol(symbol);
-    }
-  };
-
-  const handleRefresh = () => {
-    if (selectedSymbol) {
-      // Clear cache for current symbol and refetch
-      const keysToRemove = Object.keys(dataCache).filter(k => k.startsWith(`${selectedSymbol}_`));
-      setDataCache(prev => {
-        const newCache = { ...prev };
-        keysToRemove.forEach(k => delete newCache[k]);
-        return newCache;
-      });
-      fetchAllTimeframesForSymbol(selectedSymbol);
-    }
   };
 
   const handleTimeframeChange = (tf) => {
@@ -811,9 +768,8 @@ const HistoricalDataContent = () => {
 
   // Get current data from cache
   const cacheKey = `${selectedSymbol}_${activeTimeframe}`;
-  const currentData = dataCache[cacheKey] || { data: [], total: 0, offset: 0, limit: 100 };
+  const currentData = dataCache[cacheKey] || { data: [], total: 0 };
   const ohlcvData = currentData.data;
-  const pagination = { total: currentData.total, offset: currentData.offset, limit: currentData.limit };
 
   const formatTimestamp = (row) => {
     // Prefer broker time formatted timestamp
@@ -861,11 +817,6 @@ const HistoricalDataContent = () => {
     boxShadow: '0 4px 15px rgba(59, 130, 246, 0.1)',
   };
 
-  const filteredData = ohlcvData.filter((row) =>
-    searchQuery === '' ||
-    formatTimestamp(row).toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
@@ -877,17 +828,6 @@ const HistoricalDataContent = () => {
               All times displayed in broker time (EET/UTC+2)
             </span>
           </p>
-          {lastRefreshTime && (
-            <p className="text-xs text-gray-400 mt-1">
-              Last updated: {lastRefreshTime.toLocaleTimeString('en-GB', {
-                timeZone: 'Europe/London',
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit',
-                hour12: false
-              })} • Auto-refresh: Every 60s
-            </p>
-          )}
         </div>
         <div className="flex items-center gap-3">
           <motion.button
@@ -914,30 +854,21 @@ const HistoricalDataContent = () => {
               <><WifiOff size={14} /><span className="font-medium">Offline</span></>
             )}
           </div>
-          <motion.button
-            onClick={handleRefresh}
-            disabled={isLoading}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors disabled:opacity-50"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            <RefreshCw size={18} className={isLoading ? 'animate-spin' : ''} />
-            Refresh
-          </motion.button>
         </div>
       </div>
 
-      {/* Symbol Selector & Filters Row */}
+      {/* Symbol, Date Range & Search Controls */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="flex flex-col gap-4 p-4 rounded-2xl"
         style={glassStyle}
       >
-        {/* Top Row: Symbol Dropdown & Search */}
-        <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+        {/* Top Row: Symbol, Date Range, Search Button */}
+        <div className="flex flex-col lg:flex-row lg:items-end gap-4">
           {/* Symbol Dropdown */}
           <div className="relative">
+            <label className="block text-xs font-medium text-gray-500 mb-1">Symbol</label>
             <button
               onClick={() => setIsSymbolDropdownOpen(!isSymbolDropdownOpen)}
               className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl border border-gray-200 bg-white/80 text-gray-900 text-sm font-medium min-w-[180px] hover:border-blue-400 transition-colors"
@@ -966,22 +897,48 @@ const HistoricalDataContent = () => {
             )}
           </div>
 
-          {/* Search Bar */}
-          <div className="relative flex-1 lg:max-w-xs">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          {/* Start Date */}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Start Date</label>
             <input
-              type="text"
-              placeholder="Search by timestamp..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-gray-200 bg-white/80 text-gray-900 placeholder-gray-400 text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all duration-200"
+              type="datetime-local"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="px-4 py-2.5 rounded-xl border border-gray-200 bg-white/80 text-gray-900 text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all duration-200"
             />
           </div>
 
-          {/* Data Info */}
+          {/* End Date */}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">End Date</label>
+            <input
+              type="datetime-local"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="px-4 py-2.5 rounded-xl border border-gray-200 bg-white/80 text-gray-900 text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all duration-200"
+            />
+          </div>
+
+          {/* Search Button */}
+          <motion.button
+            onClick={handleSearch}
+            disabled={isLoading}
+            className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            {isLoading ? (
+              <Loader2 size={18} className="animate-spin" />
+            ) : (
+              <Search size={18} />
+            )}
+            Search
+          </motion.button>
+
+          {/* Record count */}
           <div className="text-sm text-gray-500 lg:ml-auto">
-            {pagination.total > 0 && (
-              <span>Showing {Math.min(filteredData.length, pagination.limit)} of {pagination.total} records</span>
+            {currentData.total > 0 && (
+              <span>{ohlcvData.length} of {currentData.total} records</span>
             )}
           </div>
         </div>
@@ -1026,18 +983,17 @@ const HistoricalDataContent = () => {
           <h2 className="text-lg font-semibold text-gray-900">
             {selectedSymbol} - {activeTimeframe} Timeframe
           </h2>
-          {filteredData.length > 0 && (
+          {ohlcvData.length > 0 && (
             <span className="text-xs text-gray-500">
-              {filteredData.length} records {wsConnected && <span className="text-green-600">• Live</span>}
+              {ohlcvData.length} records {wsConnected && <span className="text-green-600">• Live</span>}
             </span>
           )}
         </div>
         <CalculatedValuesTable
-          data={filteredData}
+          data={ohlcvData}
           isLoading={isLoading}
           symbol={selectedSymbol}
           timeframe={activeTimeframe}
-          loadingProgress={loadingProgress}
           formatTimestamp={formatTimestamp}
           formatPrice={formatPrice}
         />

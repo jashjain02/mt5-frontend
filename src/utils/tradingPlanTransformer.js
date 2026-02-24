@@ -69,6 +69,8 @@ export const transformApiDataToTradingPlan = (apiRecord) => {
   if (!apiRecord) return null;
 
   const tick = apiRecord.tick || null;
+  const formingBar = apiRecord.forming_bar || null;
+  const isForming = apiRecord.is_forming || false;
   const rc = apiRecord.rising_channel || {};
   const fc = apiRecord.falling_channel || {};
   const rcAbove = apiRecord.rising_channel_above || {};
@@ -136,8 +138,8 @@ export const transformApiDataToTradingPlan = (apiRecord) => {
     // Market data — use real MT5 tick data when available, fallback to bar data
     marketData: {
       symbol: 'XAUUSD',
-      high: apiRecord.high,
-      low: apiRecord.low,
+      high: isForming && formingBar ? formingBar.high : apiRecord.high,
+      low: isForming && formingBar ? formingBar.low : apiRecord.low,
       close: apiRecord.is_forming ? null : apiRecord.close,
       last: tick?.last ?? apiRecord.close,
       bid: tick?.bid ?? null,
@@ -146,10 +148,11 @@ export const transformApiDataToTradingPlan = (apiRecord) => {
       bidLow: tick?.bid_low ?? null,
       askHigh: tick?.ask_high ?? null,
       askLow: tick?.ask_low ?? null,
-      open: apiRecord.open,
+      open: isForming && formingBar ? formingBar.open : apiRecord.open,
       prevClose: apiRecord.close,
       spread: tick?.spread ?? null,
       change: apiRecord.close && apiRecord.prev_close ? apiRecord.close - apiRecord.prev_close : null,
+      d_pat: isForming && formingBar ? (formingBar.d_pat || '-') : (apiRecord.d_pat || null),
     },
 
     // Rising Channel

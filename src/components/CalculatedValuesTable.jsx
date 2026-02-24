@@ -108,7 +108,7 @@ const formatCalcValue = (value) => {
   return v ?? '-';
 };
 
-const CalculatedValuesTable = ({ data, isLoading, symbol, timeframe, loadingProgress, formatTimestamp, formatPrice }) => {
+const CalculatedValuesTable = ({ data, isLoading, symbol, timeframe, formatTimestamp, formatPrice }) => {
   const [hoveredCell, setHoveredCell] = useState(null);
 
   return (
@@ -116,17 +116,13 @@ const CalculatedValuesTable = ({ data, isLoading, symbol, timeframe, loadingProg
       {isLoading ? (
         <div className="flex flex-col items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
-          <span className="mt-3 text-gray-500">
-            {loadingProgress.total > 0
-              ? `Loading timeframes... ${loadingProgress.current}/${loadingProgress.total}`
-              : 'Loading data...'}
-          </span>
+          <span className="mt-3 text-gray-500">Loading data...</span>
         </div>
       ) : data.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-gray-500">
           <span className="text-4xl mb-3">📊</span>
           <p>No data available for {symbol} - {timeframe}</p>
-          <p className="text-sm mt-1">Try selecting a different symbol or timeframe</p>
+          <p className="text-sm mt-1">Select a date range and click Search</p>
         </div>
       ) : (
         <table className="w-full text-xs">

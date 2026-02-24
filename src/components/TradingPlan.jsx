@@ -44,9 +44,9 @@ const TradingPlan = () => {
       const intervals = { H1: 1, H4: 4, H5: 5, D1: 24, W1: 168 };
       const hours = intervals[selectedTimeframe] || 1;
       const timestamps = [];
-      for (let h = 0; h + hours <= 24; h += hours) {
+      for (let h = 0; h < 24; h += hours) {
         const start = `${String(h).padStart(2, '0')}:00:00`;
-        const end = `${String(h + hours - 1).padStart(2, '0')}:59:59`;
+        const end = `${String(Math.min(h + hours - 1, 23)).padStart(2, '0')}:59:59`;
         timestamps.push(`${start} - ${end}`);
       }
       if (timestamps.length === 0) timestamps.push('00:00:00 - 23:59:59');
@@ -123,6 +123,15 @@ const TradingPlan = () => {
 
         // Use PREVIOUS bar's RC/FC levels for display (matches what trade logs used)
         const transformedData = transformApiDataToTradingPlan(previousBar);
+
+        // Market data row: show selected bar's values (like forming bar in live mode)
+        transformedData.marketData.high      = selectedBar.high  ?? transformedData.marketData.high;
+        transformedData.marketData.low       = selectedBar.low   ?? transformedData.marketData.low;
+        transformedData.marketData.close     = selectedBar.close ?? transformedData.marketData.close;
+        transformedData.marketData.last      = selectedBar.close ?? transformedData.marketData.last;
+        transformedData.marketData.prevClose = previousBar.close ?? null;
+        transformedData.marketData.d_pat     = selectedBar.d_pat  ?? transformedData.marketData.d_pat;
+
         setApiData(transformedData);
 
         // Store the selected bar's timestamp as the monitoring period (broker time for display)
@@ -261,7 +270,7 @@ const TradingPlan = () => {
 
       if (message.type === 'calculated_values') {
         // Pass is_forming flag from the WebSocket message into the data for the transformer
-        const dataWithFormingFlag = { ...message.data, is_forming: message.is_forming, tick: message.tick };
+        const dataWithFormingFlag = { ...message.data, is_forming: message.is_forming, tick: message.tick, forming_bar: message.forming_bar };
         const transformedData = transformApiDataToTradingPlan(dataWithFormingFlag);
         setApiData(transformedData);
 
@@ -290,8 +299,8 @@ const TradingPlan = () => {
               }
 
               const d = message.data;
-              const highChanged = d.high !== currentPlan.marketData?.high;
-              const lowChanged = d.low !== currentPlan.marketData?.low;
+              const highChanged = transformedData.marketData?.high !== currentPlan.marketData?.high;
+              const lowChanged = transformedData.marketData?.low !== currentPlan.marketData?.low;
 
               if (highChanged || lowChanged) {
                 // Update marketData from current forming bar, not RC/FC levels
@@ -339,8 +348,17 @@ const TradingPlan = () => {
           if (prev) {
             setPlanData((prevPlan) => {
               if (!prevPlan) return prevPlan;
-              const existingLogs = prevPlan.tradeLogs || [];
               const newLogs = message.logs || [];
+
+              // Check if logs belong to the current forming bar
+              const messageBarTs = message.bar_timestamp_uk;
+              const currentBarTs = prevPlan.formingBarTimestamp;
+
+              // If bar timestamp changed, clear old logs and start fresh
+              let existingLogs = prevPlan.tradeLogs || [];
+              if (messageBarTs && currentBarTs && messageBarTs !== currentBarTs) {
+                existingLogs = [];
+              }
 
               // Deduplicate by creating a unique key from time + type + message
               const existingKeys = new Set(
@@ -350,7 +368,7 @@ const TradingPlan = () => {
                 (log) => !existingKeys.has(`${log.time}|${log.type}|${log.message}`)
               );
 
-              if (uniqueNewLogs.length === 0) return prevPlan;
+              if (uniqueNewLogs.length === 0 && existingLogs.length === (prevPlan.tradeLogs || []).length) return prevPlan;
               return { ...prevPlan, tradeLogs: [...existingLogs, ...uniqueNewLogs] };
             });
           }
@@ -655,6 +673,7 @@ const MarketDataRow = ({ data }) => {
     { key: 'close', label: 'CLOSE', format: (v) => v === null ? 'LIVE' : v?.toFixed(2) },
     { key: 'prevClose', label: 'PREV CLOSE' },
     { key: 'spread', label: 'SPREAD' },
+    { key: 'd_pat', label: 'D_PAT', format: (v) => v || '-' },
     { key: 'change', label: 'CHA', format: (v) => v !== null && v !== undefined ? (v >= 0 ? `+${v.toFixed(2)}` : v.toFixed(2)) : '-' },
   ];
 
