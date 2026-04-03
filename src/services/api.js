@@ -335,6 +335,118 @@ class ApiService {
       skipAuth: true,
     });
   }
+
+  async getCandleMerges(symbol, timeframe, options = {}) {
+    const params = new URLSearchParams({ symbol, timeframe });
+    if (options.limit !== undefined)   params.append('limit',       options.limit);
+    if (options.offset !== undefined)  params.append('offset',      options.offset);
+    if (options.sort)                  params.append('sort',        options.sort);
+    if (options.startDate)             params.append('start_date',  options.startDate);
+    if (options.endDate)               params.append('end_date',    options.endDate);
+    if (options.actionOnly !== undefined && options.actionOnly !== null)
+                                       params.append('action_only', options.actionOnly);
+    return this.request(`/candle-merges?${params.toString()}`, {
+      method: 'GET',
+      skipAuth: true,
+    });
+  }
+
+  // ── Merge Testing endpoints ──────────────────────────────────────────────
+
+  async runMergeAnalysis(payload) {
+    return this.request('/merge-analysis/run', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+      skipAuth: true,
+    });
+  }
+
+  async getMergeSession(sessionId) {
+    return this.request(`/merge-analysis/session/${sessionId}`, {
+      method: 'GET',
+      skipAuth: true,
+    });
+  }
+
+  async getMergeResults(sessionId, options = {}) {
+    const params = new URLSearchParams({
+      limit:    options.limit    || 100,
+      after_id: options.afterId  || 0,
+    });
+    return this.request(`/merge-analysis/results/${sessionId}?${params.toString()}`, {
+      method: 'GET',
+      skipAuth: true,
+    });
+  }
+
+  async getMergeSessions(options = {}) {
+    const params = new URLSearchParams();
+    if (options.symbol)    params.append('symbol',    options.symbol);
+    if (options.timeframe) params.append('timeframe', options.timeframe);
+    if (options.limit)     params.append('limit',     options.limit);
+    return this.request(`/merge-analysis/sessions?${params.toString()}`, {
+      method: 'GET',
+      skipAuth: true,
+    });
+  }
+
+  async deleteMergeSession(sessionId) {
+    return this.request(`/merge-analysis/session/${sessionId}`, {
+      method: 'DELETE',
+      skipAuth: true,
+    });
+  }
+
+  // ── Merge Rules CRUD ──────────────────────────────────────────────────────
+
+  async getMergeRules() {
+    return this.request('/merge-rules', { method: 'GET' });
+  }
+
+  async getMergeRule(id) {
+    return this.request(`/merge-rules/${id}`, { method: 'GET' });
+  }
+
+  async createMergeRule(payload) {
+    return this.request('/merge-rules', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async updateMergeRule(id, payload) {
+    return this.request(`/merge-rules/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async deleteMergeRule(id) {
+    return this.request(`/merge-rules/${id}`, { method: 'DELETE' });
+  }
+
+  async toggleMergeRule(id) {
+    return this.request(`/merge-rules/${id}/toggle`, { method: 'PATCH' });
+  }
+
+  async reorderMergeRules(items) {
+    // items: [{id, rule_order}, ...]
+    return this.request('/merge-rules/reorder', {
+      method: 'POST',
+      body: JSON.stringify({ items }),
+    });
+  }
+
+  async validateMergeExpression(expression) {
+    return this.request('/merge-rules/validate', {
+      method: 'POST',
+      body: JSON.stringify({ expression }),
+    });
+  }
+
+  async getMergeRuleVariables() {
+    return this.request('/merge-rules/variables', { method: 'GET' });
+  }
 }
 
 export const api = new ApiService();

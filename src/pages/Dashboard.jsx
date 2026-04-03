@@ -19,12 +19,18 @@ import {
   WifiOff,
   Activity,
   FileSpreadsheet,
+  GitMerge,
+  FlaskConical,
+  SlidersHorizontal,
 } from 'lucide-react';
 import api from '../services/api';
 import MarketWatch from '../components/MarketWatch';
 import TicksModal from '../components/TicksModal';
 import CalculatedValuesTable from '../components/CalculatedValuesTable';
 import TradingPlan from '../components/TradingPlan';
+import MergeHistory from '../components/MergeHistory';
+import MergeTesting from '../components/MergeTesting';
+import MergeRules from '../components/MergeRules';
 
 const Dashboard = ({ onLogout }) => {
   // Persist active tab in localStorage so it survives page refresh
@@ -68,6 +74,9 @@ const Dashboard = ({ onLogout }) => {
     { id: 'market-watch', label: 'Market Watch', icon: TrendingUp },
     { id: 'trading-plan', label: 'Trading Plan', icon: FileSpreadsheet },
     { id: 'historical', label: 'Data', icon: History },
+    { id: 'merge-history', label: 'Merge History', icon: GitMerge },
+    { id: 'merge-rules', label: 'Merge Rules', icon: SlidersHorizontal },
+    { id: 'merge-testing', label: 'Merge Testing', icon: FlaskConical },
     { id: 'wallet', label: 'Wallet', icon: Wallet },
     { id: 'transactions', label: 'Transactions', icon: ArrowLeftRight },
     { id: 'analytics', label: 'Analytics', icon: PieChart },
@@ -84,6 +93,12 @@ const Dashboard = ({ onLogout }) => {
         return <TradingPlan />;
       case 'historical':
         return <HistoricalDataContent />;
+      case 'merge-history':
+        return <MergeHistory />;
+      case 'merge-rules':
+        return <MergeRules />;
+      case 'merge-testing':
+        return <MergeTesting />;
       case 'wallet':
         return <PlaceholderContent title="Wallet" description="Manage your digital assets" />;
       case 'transactions':

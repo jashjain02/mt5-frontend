@@ -34,7 +34,7 @@ const TradingPlan = () => {
   const [isLoadingApi, setIsLoadingApi] = useState(false);
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
-  const lastFormingBarTimestampRef = useRef(null);  // Track forming bar timestamp to detect new bar
+  const lastFormingBarRef = useRef({ timeframe: null, timestamp: null });  // Track {timeframe, timestamp} — timeframe-aware to avoid false isNewBar on switch
 
   const timeframes = ['H1', 'H4', 'H5', 'D1', 'W1'];
 
@@ -274,11 +274,14 @@ const TradingPlan = () => {
         const transformedData = transformApiDataToTradingPlan(dataWithFormingFlag);
         setApiData(transformedData);
 
-        // Detect new bar by comparing forming bar timestamp (not displayed plan timestamp)
+        // Detect new bar: only trigger when the completed bar's timestamp changes
+        // on the SAME timeframe — prevents false positives when switching timeframes.
         const formingBarTimestamp = transformedData.timestamp;
-        const isNewBar = lastFormingBarTimestampRef.current &&
-                         lastFormingBarTimestampRef.current !== formingBarTimestamp;
-        lastFormingBarTimestampRef.current = formingBarTimestamp;
+        const lastBar = lastFormingBarRef.current;
+        const isNewBar = lastBar.timeframe === selectedTimeframe &&
+                         lastBar.timestamp !== null &&
+                         lastBar.timestamp !== formingBarTimestamp;
+        lastFormingBarRef.current = { timeframe: selectedTimeframe, timestamp: formingBarTimestamp };
 
         // Only update the displayed plan when in live mode
         // Don't overwrite historical data the user is viewing
