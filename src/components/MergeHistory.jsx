@@ -21,10 +21,13 @@ export default function MergeHistory() {
   const [endDate, setEndDate]     = useState('');
   const [offset, setOffset]       = useState(0);
 
-  const [rows, setRows]     = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError]   = useState(null);
-  const [loaded, setLoaded] = useState(false);
+  const [rows, setRows]         = useState([]);
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState(null);
+  const [loaded, setLoaded]     = useState(false);
+  const [expanded, setExpanded] = useState(null);
+
+  const toggleExpand = (id) => setExpanded(prev => prev === id ? null : id);
 
   const actionOnly =
     filter === 'merged' ? false :
@@ -190,6 +193,7 @@ export default function MergeHistory() {
                 <tr className="border-b border-gray-200 bg-gray-50/80">
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">Bar Timestamp</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Plan → Sit</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Cond #</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Trigger</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 max-w-xs">Description</th>
@@ -199,10 +203,16 @@ export default function MergeHistory() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row, idx) => (
+                {rows.map((row, idx) => {
+                  const isExpanded = expanded === (row.id ?? idx);
+                  return (
+                  <>
                   <tr
                     key={row.id ?? idx}
-                    className="border-b border-gray-100 last:border-0 hover:bg-blue-50/30 transition-colors"
+                    onClick={() => toggleExpand(row.id ?? idx)}
+                    className={`border-b border-gray-100 transition-colors cursor-pointer
+                      ${isExpanded ? 'bg-blue-50/60' : 'hover:bg-blue-50/30'}
+                      ${row.action_occurred ? '' : 'last:border-0'}`}
                   >
                     {/* Bar Timestamp */}
                     <td className="px-4 py-2.5 font-mono text-xs text-gray-600 whitespace-nowrap">
@@ -216,6 +226,13 @@ export default function MergeHistory() {
                       ) : (
                         <span className="px-2 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-700">MERGED</span>
                       )}
+                    </td>
+
+                    {/* Plan → Situation */}
+                    <td className="px-4 py-2.5 font-mono text-xs text-gray-600 whitespace-nowrap">
+                      {row.prev_d_pat || row.d_pat
+                        ? <>{row.prev_d_pat ?? '—'} <span className="text-gray-400">→</span> {row.d_pat ?? '—'}</>
+                        : <span className="text-gray-300">—</span>}
                     </td>
 
                     {/* Condition # */}
@@ -264,7 +281,90 @@ export default function MergeHistory() {
                       {row.merged_close ?? <span className="text-gray-300">—</span>}
                     </td>
                   </tr>
-                ))}
+
+                  {/* Expanded detail row */}
+                  {isExpanded && (
+                    <tr key={`${row.id ?? idx}-detail`} className="border-b border-blue-100 bg-blue-50/40">
+                      <td colSpan={9} className="px-6 py-3">
+                        {row.action_occurred ? (
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-2 text-xs">
+                            <div>
+                              <span className="text-gray-400 uppercase tracking-wide text-[10px]">Bar H / L</span>
+                              <p className="font-mono text-gray-800">
+                                {row.bar_high ?? '—'} / {row.bar_low ?? '—'}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-gray-400 uppercase tracking-wide text-[10px]">Base H / L</span>
+                              <p className="font-mono text-gray-800">
+                                {row.base_high ?? '—'} / {row.base_low ?? '—'}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-gray-400 uppercase tracking-wide text-[10px]">New High Target</span>
+                              <p className={`font-mono font-semibold ${row.bar_high != null && row.new_high_target != null && row.bar_high >= row.new_high_target ? 'text-green-600' : 'text-gray-800'}`}>
+                                {row.new_high_target ?? '—'}
+                                {row.bar_high != null && row.new_high_target != null && (
+                                  <span className="ml-1">{row.bar_high >= row.new_high_target ? '✓' : '✗'}</span>
+                                )}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-gray-400 uppercase tracking-wide text-[10px]">New Low Target</span>
+                              <p className={`font-mono font-semibold ${row.bar_low != null && row.new_low_target != null && row.bar_low <= row.new_low_target ? 'text-green-600' : 'text-gray-800'}`}>
+                                {row.new_low_target ?? '—'}
+                                {row.bar_low != null && row.new_low_target != null && (
+                                  <span className="ml-1">{row.bar_low <= row.new_low_target ? '✓' : '✗'}</span>
+                                )}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-gray-400 uppercase tracking-wide text-[10px]">Trigger Level Value</span>
+                              <p className="font-mono text-gray-800">{row.trigger_level_value ?? '—'}</p>
+                            </div>
+                            <div>
+                              <span className="text-gray-400 uppercase tracking-wide text-[10px]">TVHS</span>
+                              <p className={`font-mono font-semibold ${row.bar_high != null && row.tvhs != null && row.bar_high >= row.tvhs ? 'text-green-600' : 'text-gray-800'}`}>
+                                {row.tvhs ?? '—'}
+                                {row.bar_high != null && row.tvhs != null && (
+                                  <span className="ml-1">{row.bar_high >= row.tvhs ? '✓' : '✗'}</span>
+                                )}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-gray-400 uppercase tracking-wide text-[10px]">TVLS</span>
+                              <p className={`font-mono font-semibold ${row.bar_low != null && row.tvls != null && row.bar_low <= row.tvls ? 'text-green-600' : 'text-gray-800'}`}>
+                                {row.tvls ?? '—'}
+                                {row.bar_low != null && row.tvls != null && (
+                                  <span className="ml-1">{row.bar_low <= row.tvls ? '✓' : '✗'}</span>
+                                )}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-gray-400 uppercase tracking-wide text-[10px]">UTP Station</span>
+                              <p className="font-mono text-gray-800">{row.utp_trigger ?? '—'}</p>
+                            </div>
+                            <div>
+                              <span className="text-gray-400 uppercase tracking-wide text-[10px]">DTP Station</span>
+                              <p className="font-mono text-gray-800">{row.dtp_trigger ?? '—'}</p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-3 gap-x-8 gap-y-2 text-xs">
+                            <div>
+                              <span className="text-gray-400 uppercase tracking-wide text-[10px]">Merged H / L / C</span>
+                              <p className="font-mono text-green-700">
+                                {row.merged_high ?? '—'} / {row.merged_low ?? '—'} / {row.merged_close ?? '—'}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                  </>
+                  );
+                })}
               </tbody>
             </table>
           </div>

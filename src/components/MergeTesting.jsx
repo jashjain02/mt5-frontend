@@ -1,12 +1,33 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import {
-  FlaskConical, Play, Loader2, AlertCircle, ChevronDown, ChevronUp,
+  FlaskConical, Play, Loader2, AlertCircle, ChevronDown,
   History, ArrowLeft, Trash2, RefreshCw, CheckSquare, Square
 } from 'lucide-react';
 import api from '../services/api';
 
 const TIMEFRAMES = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'H5', '5H+', 'D1', 'W1', 'MN1'];
+
+const RC_CLOSE_LEVELS = [
+  { value: 'RC_14_60',  label: 'Close > RC 14.6%' },
+  { value: 'RC_23_60',  label: 'Close > RC 23.6%' },
+  { value: 'RC_38_20',  label: 'Close > RC 38.2%' },
+  { value: 'RC_61_80',  label: 'Close > RC 61.8%' },
+  { value: 'RC_100_00', label: 'Close > RC 100%'  },
+  { value: 'RC_138_20', label: 'Close > RC 138.2%'},
+  { value: 'RC_161_80', label: 'Close > RC 161.8%'},
+  { value: 'RC_261_80', label: 'Close > RC 261.8%'},
+];
+const FC_CLOSE_LEVELS = [
+  { value: 'FC_14_60',  label: 'Close < FC 14.6%' },
+  { value: 'FC_23_60',  label: 'Close < FC 23.6%' },
+  { value: 'FC_38_20',  label: 'Close < FC 38.2%' },
+  { value: 'FC_61_80',  label: 'Close < FC 61.8%' },
+  { value: 'FC_100_00', label: 'Close < FC 100%'  },
+  { value: 'FC_138_20', label: 'Close < FC 138.2%'},
+  { value: 'FC_161_80', label: 'Close < FC 161.8%'},
+  { value: 'FC_261_80', label: 'Close < FC 261.8%'},
+];
 
 const glassStyle = {
   background: 'rgba(255,255,255,0.7)',
@@ -38,9 +59,13 @@ export default function MergeTesting() {
   const [timeframe, setTimeframe] = useState('H1');
   const [startDate, setStartDate] = useState('');
   const [endDate,   setEndDate]   = useState('');
-  const [dbRules,       setDbRules]       = useState([]);
-  const [rulesLoading,  setRulesLoading]  = useState(true);
-  const [selectedRules, setSelectedRules] = useState(new Set());
+  const [threshold, setThreshold] = useState('0.073');
+  const [customThreshold, setCustomThreshold] = useState('');
+  const [dbRules,            setDbRules]            = useState([]);
+  const [rulesLoading,       setRulesLoading]       = useState(true);
+  const [selectedRules,      setSelectedRules]      = useState(new Set());
+  const [selectedExceptions, setSelectedExceptions] = useState(new Set());
+  const [excCloseFilters,    setExcCloseFilters]    = useState({});  // {excId: levelName}
 
   // ── Run state ──────────────────────────────────────────────────────────────
   const [running,   setRunning]   = useState(false);
@@ -49,10 +74,11 @@ export default function MergeTesting() {
   const pollRef = useRef(null);
 
   // ── Results state ──────────────────────────────────────────────────────────
-  const [rows,     setRows]     = useState([]);
-  const [hasMore,  setHasMore]  = useState(false);
-  const [afterId,  setAfterId]  = useState(0);
+  const [rows,       setRows]       = useState([]);
+  const [hasMore,    setHasMore]    = useState(false);
+  const [afterId,    setAfterId]    = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [expandedRow, setExpandedRow] = useState(null); // row id that is expanded
 
   // ── History state ──────────────────────────────────────────────────────────
   const [sessions,       setSessions]       = useState([]);
@@ -69,6 +95,9 @@ export default function MergeTesting() {
         const rules = resp?.rules || [];
         setDbRules(rules);
         setSelectedRules(new Set(rules.map(r => r.id)));
+        // Pre-select all exceptions
+        const allExcIds = rules.flatMap(r => (r.exceptions || []).map(e => e.id));
+        setSelectedExceptions(new Set(allExcIds));
       } catch (e) {
         // silent — run button will show validation error if empty
       } finally {
@@ -77,18 +106,65 @@ export default function MergeTesting() {
     })();
   }, []);
 
-  // ── Rule toggle ────────────────────────────────────────────────────────────
-  const toggleRule = (id) => {
+  // ── Rule / exception toggles ───────────────────────────────────────────────
+  const toggleRule = (rule) => {
+    const excIds = (rule.exceptions || []).map(e => e.id);
+    const isChecked = selectedRules.has(rule.id);
     setSelectedRules(prev => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      isChecked ? next.delete(rule.id) : next.add(rule.id);
+      return next;
+    });
+    setSelectedExceptions(prev => {
+      const next = new Set(prev);
+      if (isChecked) {
+        excIds.forEach(id => next.delete(id));
+      } else {
+        excIds.forEach(id => next.add(id));
+      }
+      return next;
+    });
+    if (isChecked) {
+      setExcCloseFilters(prev => {
+        const next = { ...prev };
+        excIds.forEach(id => delete next[id]);
+        return next;
+      });
+    }
+  };
+  const toggleException = (excId) => {
+    const willUncheck = selectedExceptions.has(excId);
+    setSelectedExceptions(prev => {
+      const next = new Set(prev);
+      next.has(excId) ? next.delete(excId) : next.add(excId);
+      return next;
+    });
+    if (willUncheck) {
+      setExcCloseFilters(prev => {
+        const next = { ...prev };
+        delete next[excId];
+        return next;
+      });
+    }
+  };
+  const setExcCloseFilter = (excId, level) => {
+    setExcCloseFilters(prev => {
+      const next = { ...prev };
+      if (level) next[excId] = level;
+      else delete next[excId];
       return next;
     });
   };
   const toggleAllRules = () => {
-    setSelectedRules(prev =>
-      prev.size === dbRules.length ? new Set() : new Set(dbRules.map(r => r.id))
-    );
+    const allSelected = selectedRules.size === dbRules.length;
+    if (allSelected) {
+      setSelectedRules(new Set());
+      setSelectedExceptions(new Set());
+      setExcCloseFilters({});
+    } else {
+      setSelectedRules(new Set(dbRules.map(r => r.id)));
+      setSelectedExceptions(new Set(dbRules.flatMap(r => (r.exceptions || []).map(e => e.id))));
+    }
   };
 
   // ── Run analysis ───────────────────────────────────────────────────────────
@@ -109,12 +185,36 @@ export default function MergeTesting() {
     setAfterId(0);
 
     try {
+      const parsedThreshold = threshold === 'custom'
+        ? parseFloat(customThreshold) / 100
+        : parseFloat(threshold);
+
+      if (!parsedThreshold || parsedThreshold <= 0 || parsedThreshold > 1) {
+        setRunError('Invalid threshold value.');
+        setRunning(false);
+        return;
+      }
+
+      // Compute all exception IDs across selected rules
+      const allExcIds = dbRules
+        .filter(r => selectedRules.has(r.id))
+        .flatMap(r => (r.exceptions || []).map(e => e.id));
+      const someExcluded = allExcIds.some(id => !selectedExceptions.has(id));
+
+      const activeFilters = Object.keys(excCloseFilters).length > 0 ? excCloseFilters : null;
+
       const resp = await api.runMergeAnalysis({
         symbol,
         timeframe,
-        start_date: startDate,
-        end_date:   endDate,
-        rules:      Array.from(selectedRules).sort((a, b) => a - b),
+        start_date:              startDate,
+        end_date:                endDate,
+        rules:                   Array.from(selectedRules).sort((a, b) => a - b),
+        threshold:               parsedThreshold,
+        // Only send selected_exceptions if some are excluded; null = all active
+        selected_exceptions:     someExcluded
+          ? Array.from(selectedExceptions).sort((a, b) => a - b)
+          : null,
+        exception_close_filters: activeFilters,
       });
 
       if (!resp?.success) {
@@ -290,22 +390,67 @@ export default function MergeTesting() {
                 </select>
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Start Date</label>
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Start Date &amp; Time</label>
                 <input
-                  type="date"
+                  type="datetime-local"
                   value={startDate}
                   onChange={e => setStartDate(e.target.value)}
                   className="px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
                 />
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">End Date</label>
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">End Date &amp; Time</label>
                 <input
-                  type="date"
+                  type="datetime-local"
                   value={endDate}
                   onChange={e => setEndDate(e.target.value)}
                   className="px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
                 />
+              </div>
+            </div>
+
+            {/* Threshold selector */}
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                New High / Low Threshold
+              </label>
+              <div className="flex items-center gap-3 flex-wrap">
+                {[['7.3%', '0.073'], ['14.6%', '0.146']].map(([label, val]) => (
+                  <button
+                    key={val}
+                    onClick={() => setThreshold(val)}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium border transition-all
+                      ${threshold === val
+                        ? 'bg-violet-600 text-white border-violet-600'
+                        : 'bg-white text-gray-600 border-gray-200 hover:border-violet-300'}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setThreshold('custom')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium border transition-all
+                    ${threshold === 'custom'
+                      ? 'bg-violet-600 text-white border-violet-600'
+                      : 'bg-white text-gray-600 border-gray-200 hover:border-violet-300'}`}
+                >
+                  Custom
+                </button>
+                {threshold === 'custom' && (
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      min="0.1"
+                      max="100"
+                      step="0.1"
+                      value={customThreshold}
+                      onChange={e => setCustomThreshold(e.target.value)}
+                      placeholder="e.g. 10"
+                      className="w-24 px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+                    />
+                    <span className="text-sm text-gray-500">%</span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -314,6 +459,13 @@ export default function MergeTesting() {
               <div className="flex items-center justify-between mb-2">
                 <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
                   Merge Rules ({selectedRules.size}/{dbRules.length} selected)
+                  {(() => {
+                    const totalExc = dbRules.reduce((n, r) => n + (r.exceptions?.length || 0), 0);
+                    const activeExc = dbRules
+                      .filter(r => selectedRules.has(r.id))
+                      .reduce((n, r) => n + (r.exceptions || []).filter(e => selectedExceptions.has(e.id)).length, 0);
+                    return totalExc > 0 ? ` · ${activeExc}/${totalExc} exceptions` : '';
+                  })()}
                 </label>
                 {dbRules.length > 0 && (
                   <button
@@ -335,34 +487,87 @@ export default function MergeTesting() {
                   No merge rules defined yet. Create rules in the <strong>Merge Rules</strong> tab first.
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="space-y-2">
                   {dbRules.map(rule => {
-                    const checked = selectedRules.has(rule.id);
+                    const ruleChecked = selectedRules.has(rule.id);
+                    const exceptions  = rule.exceptions || [];
+                    const activeExcs  = exceptions.filter(e => selectedExceptions.has(e.id));
+                    const allExcsOff  = ruleChecked && exceptions.length > 0 && activeExcs.length === 0;
                     return (
-                      <button
-                        key={rule.id}
-                        onClick={() => toggleRule(rule.id)}
-                        className={`flex items-start gap-3 p-3 rounded-xl border text-left transition-all
-                          ${checked
-                            ? 'border-violet-300 bg-violet-50'
-                            : 'border-gray-200 bg-white hover:border-gray-300'}`}
-                      >
-                        <div className={`mt-0.5 flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center
-                          ${checked ? 'bg-violet-600 border-violet-600' : 'border-gray-300'}`}>
-                          {checked && <span className="text-white text-xs leading-none">✓</span>}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className={`text-xs font-bold ${checked ? 'text-violet-700' : 'text-gray-500'}`}>
-                              #{rule.rule_order}
-                            </span>
-                            <span className="text-xs font-medium text-gray-700">{rule.name}</span>
+                      <div key={rule.id}>
+                        {/* ── Parent rule row ─────────────────────────────── */}
+                        <button
+                          onClick={() => toggleRule(rule)}
+                          className={`w-full flex items-start gap-3 p-3 rounded-xl border text-left transition-all
+                            ${ruleChecked
+                              ? 'border-violet-300 bg-violet-50'
+                              : 'border-gray-200 bg-white hover:border-gray-300'}`}
+                        >
+                          <div className={`mt-0.5 flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center
+                            ${ruleChecked ? 'bg-violet-600 border-violet-600' : 'border-gray-300'}`}>
+                            {ruleChecked && <span className="text-white text-xs leading-none">✓</span>}
                           </div>
-                          {rule.description && (
-                            <span className="text-xs text-gray-400">{rule.description}</span>
-                          )}
-                        </div>
-                      </button>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className={`text-xs font-bold ${ruleChecked ? 'text-violet-700' : 'text-gray-500'}`}>
+                                #{rule.rule_order}
+                              </span>
+                              <span className="text-xs font-medium text-gray-700">{rule.name}</span>
+                              {allExcsOff && (
+                                <span className="text-xs text-amber-600 font-medium">(no exceptions active)</span>
+                              )}
+                            </div>
+                            {rule.description && (
+                              <span className="text-xs text-gray-400">{rule.description.split('\n')[0]}</span>
+                            )}
+                          </div>
+                        </button>
+
+                        {/* ── Exception rows (shown when parent is checked) ─ */}
+                        {ruleChecked && exceptions.length > 0 && (
+                          <div className="ml-7 mt-1 space-y-1">
+                            {exceptions.map(exc => {
+                              const excChecked = selectedExceptions.has(exc.id);
+                              const closeLevels = exc.trigger_direction === 'ABOVE'
+                                ? RC_CLOSE_LEVELS
+                                : exc.trigger_direction === 'BELOW'
+                                  ? FC_CLOSE_LEVELS
+                                  : null;
+                              return (
+                                <div
+                                  key={exc.id}
+                                  className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all cursor-pointer
+                                    ${excChecked
+                                      ? 'border-violet-200 bg-violet-50/60'
+                                      : 'border-gray-200 bg-white/60 hover:border-gray-300'}`}
+                                  onClick={() => toggleException(exc.id)}
+                                >
+                                  <div className={`flex-shrink-0 w-3.5 h-3.5 rounded border flex items-center justify-center
+                                    ${excChecked ? 'bg-violet-500 border-violet-500' : 'border-gray-300'}`}>
+                                    {excChecked && <span className="text-white" style={{fontSize: 9, lineHeight: 1}}>✓</span>}
+                                  </div>
+                                  <span className={`text-xs flex-1 ${excChecked ? 'text-violet-700' : 'text-gray-400 line-through'}`}>
+                                    {exc.name}
+                                  </span>
+                                  {excChecked && closeLevels && (
+                                    <select
+                                      value={excCloseFilters[exc.id] || ''}
+                                      onClick={e => e.stopPropagation()}
+                                      onChange={e => { e.stopPropagation(); setExcCloseFilter(exc.id, e.target.value); }}
+                                      className="text-xs border border-gray-200 rounded-md px-1 py-0.5 bg-white text-gray-600 focus:outline-none focus:ring-1 focus:ring-violet-300 max-w-[160px]"
+                                    >
+                                      <option value="">No close filter</option>
+                                      {closeLevels.map(opt => (
+                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                      ))}
+                                    </select>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
@@ -435,6 +640,11 @@ export default function MergeTesting() {
                   {session.merged_units_count} merged
                 </span>
               )}
+              {session.standalone_units_count != null && session.standalone_units_count > 0 && (
+                <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                  {session.standalone_units_count} standalone
+                </span>
+              )}
               {Array.isArray(session.rules_applied) && (
                 <span className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
                   Rules: {session.rules_applied.join(', ')}
@@ -476,11 +686,13 @@ export default function MergeTesting() {
                           ? 'rgba(59,130,246,0.07)'
                           : 'transparent';
 
+                      const isExpanded = expandedRow === (row.id ?? idx);
                       return (
+                        <React.Fragment key={row.id ?? idx}>
                         <tr
-                          key={row.id ?? idx}
-                          className="border-b border-gray-100 last:border-0 hover:brightness-95 transition-all"
+                          className="border-b border-gray-100 hover:brightness-95 transition-all cursor-pointer"
                           style={{ background: rowBg }}
+                          onClick={() => setExpandedRow(isExpanded ? null : (row.id ?? idx))}
                         >
                           <td className="px-3 py-2 font-mono text-xs text-gray-600 whitespace-nowrap">
                             {fmtTs(row.bar_start_uk)}
@@ -525,6 +737,95 @@ export default function MergeTesting() {
                             ) : <span className="text-gray-300 text-xs">—</span>}
                           </td>
                         </tr>
+                        {isExpanded && Array.isArray(row.bar_details) && row.bar_details.length > 0 && (
+                          <tr style={{ background: 'rgba(238,242,255,0.95)' }}>
+                            <td colSpan={12} className="px-4 py-3 bg-indigo-50/60">
+                              <div className="text-xs font-semibold text-indigo-700 mb-2">
+                                Bar-by-bar eval ({row.bar_details.length} bar{row.bar_details.length > 1 ? 's' : ''})
+                              </div>
+                              {(() => {
+                                const planPat = row.bar_details[0]?.prev_d_pat;
+                                const showMutp = planPat === '3+1' || planPat === '2+1';
+                                const showMdtp = planPat === '2+2';
+                                const n   = (v) => v != null ? Number(v).toFixed(2) : '—';
+                                const chk = (v) => v == null
+                                  ? <span className="text-gray-300">—</span>
+                                  : v
+                                    ? <span className="text-green-600 font-bold">✓</span>
+                                    : <span className="text-red-400">✗</span>;
+                                // Precompute running accumulated OHLC per bar
+                                let runH = -Infinity, runL = Infinity;
+                                const accOHLC = row.bar_details.map((bd, i) => {
+                                  runH = Math.max(runH, bd.high ?? -Infinity);
+                                  runL = Math.min(runL, bd.low  ??  Infinity);
+                                  return {
+                                    open:  i === 0 ? bd.open : row.bar_details[0].open,
+                                    high:  runH,
+                                    low:   runL,
+                                    close: bd.close,
+                                  };
+                                });
+                                return (
+                                <div className="overflow-x-auto">
+                                <table className="w-full text-xs border-collapse">
+                                  <thead>
+                                    <tr className="text-left text-gray-500 border-b border-indigo-100">
+                                      <th className="pr-3 py-1 font-semibold whitespace-nowrap">Time</th>
+                                      <th className="pr-3 py-1 font-semibold">Plan</th>
+                                      <th className="pr-3 py-1 font-semibold">Sit</th>
+                                      <th className="pr-3 py-1 font-semibold">UTP</th>
+                                      {showMutp && <th className="pr-3 py-1 font-semibold">MUTP</th>}
+                                      <th className="pr-3 py-1 font-semibold">DTP</th>
+                                      {showMdtp && <th className="pr-3 py-1 font-semibold">MDTP</th>}
+                                      <th className="pr-3 py-1 font-semibold text-gray-400">O</th>
+                                      <th className="pr-3 py-1 font-semibold text-green-600">H</th>
+                                      <th className="pr-3 py-1 font-semibold text-red-500">L</th>
+                                      <th className="pr-3 py-1 font-semibold text-gray-500">C</th>
+                                      <th className="pr-3 py-1 font-semibold whitespace-nowrap">NH/NL Target</th>
+                                      <th className="pr-3 py-1 font-semibold">NH ✓</th>
+                                      <th className="pr-3 py-1 font-semibold whitespace-nowrap">Station</th>
+                                      <th className="pr-3 py-1 font-semibold whitespace-nowrap">TVHS/TVLS</th>
+                                      <th className="pr-3 py-1 font-semibold">TV ✓</th>
+                                      <th className="pr-3 py-1 font-semibold">Fired?</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {row.bar_details.map((bd, bi) => {
+                                      const nhOk  = bd.new_high_cleared ?? bd.new_low_cleared;
+                                      const tvOk  = bd.tvhs_cleared ?? bd.tvls_cleared;
+                                      const fired = bd.fired;
+                                      const acc   = accOHLC[bi];
+                                      return (
+                                        <tr key={bi} className={`border-b border-indigo-50 ${fired ? 'bg-blue-50' : ''}`}>
+                                          <td className="pr-3 py-1 font-mono whitespace-nowrap text-gray-500">{bd.ts ? String(bd.ts).slice(0, 16).replace('T', ' ') : '—'}</td>
+                                          <td className="pr-3 py-1 font-mono font-bold text-violet-700">{bd.prev_d_pat ?? '—'}</td>
+                                          <td className="pr-3 py-1 font-mono text-gray-600">{bd.d_pat ?? '—'}</td>
+                                          <td className="pr-3 py-1 font-mono text-blue-600">{n(bd.utp)}</td>
+                                          {showMutp && <td className="pr-3 py-1 font-mono text-blue-400">{n(bd.mutp)}</td>}
+                                          <td className="pr-3 py-1 font-mono text-red-600">{n(bd.dtp)}</td>
+                                          {showMdtp && <td className="pr-3 py-1 font-mono text-red-400">{n(bd.mdtp)}</td>}
+                                          <td className="pr-3 py-1 font-mono text-gray-400">{n(acc?.open)}</td>
+                                          <td className="pr-3 py-1 font-mono text-green-700 font-medium">{n(acc?.high)}</td>
+                                          <td className="pr-3 py-1 font-mono text-red-500 font-medium">{n(acc?.low)}</td>
+                                          <td className="pr-3 py-1 font-mono text-gray-600">{n(acc?.close)}</td>
+                                          <td className="pr-3 py-1 font-mono text-gray-500">{n(bd.new_high_target ?? bd.new_low_target)}</td>
+                                          <td className="pr-3 py-1 text-center">{chk(nhOk)}</td>
+                                          <td className="pr-3 py-1 font-mono text-indigo-600">{bd.utp_trigger || bd.dtp_trigger || '—'}</td>
+                                          <td className="pr-3 py-1 font-mono text-gray-500">{n(bd.tvhs ?? bd.tvls)}</td>
+                                          <td className="pr-3 py-1 text-center">{chk(tvOk)}</td>
+                                          <td className="pr-3 py-1 text-center">{fired ? <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-bold">C{bd.rule_no}</span> : <span className="text-gray-300">—</span>}</td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                                );
+                              })()}
+                            </td>
+                          </tr>
+                        )}
+                        </React.Fragment>
                       );
                     })}
                   </tbody>
@@ -609,7 +910,7 @@ export default function MergeTesting() {
                       {s.total_input_bars != null && (
                         <span className="text-xs text-gray-400">
                           {s.total_input_bars} bars → {s.total_output_units} units
-                          {s.merged_units_count != null && ` (${s.merged_units_count} merged)`}
+                          {s.merged_units_count != null && ` (${s.merged_units_count} merged, ${s.standalone_units_count ?? 0} standalone)`}
                         </span>
                       )}
                     </div>
