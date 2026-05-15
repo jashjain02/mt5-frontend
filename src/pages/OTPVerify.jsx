@@ -9,7 +9,7 @@ import {
 } from '../components';
 import api from '../services/api';
 
-const OTPVerify = ({ email = 'user@example.com', onNavigate, onVerifySuccess }) => {
+const OTPVerify = ({ email = 'user@example.com', onNavigate, onVerifySuccess, devOtp = null }) => {
   const [otp, setOtp] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -208,6 +208,12 @@ const OTPVerify = ({ email = 'user@example.com', onNavigate, onVerifySuccess }) 
             )}
 
             <form onSubmit={handleSubmit} className="space-y-5">
+              {devOtp && (
+                <div className="p-3 rounded-lg bg-yellow-50 border border-yellow-200 text-center">
+                  <p className="text-xs text-yellow-700 font-medium mb-1">DEV MODE — OTP code (email may not be configured):</p>
+                  <p className="text-2xl font-bold tracking-widest text-yellow-900">{devOtp}</p>
+                </div>
+              )}
               <OTPInput
                 length={6}
                 value={otp}
@@ -234,7 +240,12 @@ const OTPVerify = ({ email = 'user@example.com', onNavigate, onVerifySuccess }) 
                 )}
               </div>
 
-              <GradientButton type="submit" disabled={otp.length !== 6} loading={isLoading}>
+              <GradientButton
+                type="submit"
+                disabled={otp.length !== 6}
+                loading={isLoading}
+                loadingText="Verifying..."
+              >
                 Verify & Login
               </GradientButton>
             </form>

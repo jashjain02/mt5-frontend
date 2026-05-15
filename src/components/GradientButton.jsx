@@ -7,6 +7,7 @@ const GradientButton = ({
   type = 'button',
   disabled = false,
   loading = false,
+  loadingText = 'Loading...',
   variant = 'primary',
   fullWidth = true,
   className = '',
@@ -17,9 +18,9 @@ const GradientButton = ({
 
   const variantConfig = {
     primary: {
-      className: `${baseStyles} text-white`,
-      style: { backgroundColor: '#2563eb' },
-      hoverStyle: { backgroundColor: '#1d4ed8' },
+      className: `${baseStyles} font-semibold`,
+      style: { backgroundColor: '#10b981', color: '#0a0f1a', boxShadow: '0 0 12px rgba(16,185,129,0.25)' },
+      hoverStyle: { backgroundColor: '#059669', boxShadow: '0 0 24px rgba(16,185,129,0.40)' },
     },
     secondary: {
       className: `${baseStyles} bg-white text-gray-700 border border-gray-300 hover:bg-gray-50`,
@@ -52,8 +53,12 @@ const GradientButton = ({
       transition={{ duration: 0.15 }}
     >
       <span className="flex items-center justify-center gap-2">
-        {loading && <Loader size="sm" />}
-        {children}
+        {loading ? (
+          <>
+            <Loader size="sm" color="#0a0f1a" />
+            {loadingText}
+          </>
+        ) : children}
       </span>
     </motion.button>
   );

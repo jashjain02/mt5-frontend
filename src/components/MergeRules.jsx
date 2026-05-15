@@ -152,10 +152,9 @@ function buildExpressionFromConditions(conds) {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const glass = {
-  background: 'rgba(255,255,255,0.7)',
-  backdropFilter: 'blur(20px)',
-  border: '1px solid rgba(255,255,255,0.3)',
-  boxShadow: '0 8px 32px rgba(0,0,0,0.08)',
+  background: 'rgba(255,255,255,0.04)',
+  border: '1px solid rgba(255,255,255,0.08)',
+  boxShadow: '0 4px 24px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.06)',
 };
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -167,7 +166,7 @@ function ChipMultiSelect({ options, value, onChange, label }) {
   };
   return (
     <div>
-      <p className="text-xs text-gray-500 mb-1">{label} <span className="text-gray-400">(empty = all)</span></p>
+      <p className="text-xs text-gray-400 mb-1">{label} <span className="text-gray-500">(empty = all)</span></p>
       <div className="flex flex-wrap gap-1">
         {options.map(opt => {
           const sel = value.includes(opt);
@@ -178,7 +177,7 @@ function ChipMultiSelect({ options, value, onChange, label }) {
               className={`px-2 py-0.5 rounded text-xs font-medium border transition-colors ${
                 sel
                   ? 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'
+                  : 'bg-white/5 text-gray-400 border-white/10 hover:border-blue-400 hover:text-gray-200'
               }`}
             >
               {opt}
@@ -197,7 +196,8 @@ function LevelSelect({ value, onChange, options, disabled }) {
       onChange={e => onChange(e.target.value)}
       disabled={disabled}
       onClick={e => e.stopPropagation()}
-      className="ml-1 px-1.5 py-0.5 text-xs border border-gray-300 rounded bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-40 cursor-pointer"
+      className="ml-1 px-1.5 py-0.5 text-xs border border-white/10 rounded bg-white/8 text-gray-200 focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-40 cursor-pointer"
+      style={{ background: 'rgba(255,255,255,0.08)', color: '#e5e7eb' }}
     >
       {options.map(opt => (
         <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -215,7 +215,7 @@ function ConditionChecklist({ conditions, onChange }) {
     <div className="space-y-5">
       {CONDITION_GROUPS.map(group => (
         <div key={group.label}>
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
             {group.label}
           </p>
           <div className="space-y-2.5">
@@ -233,7 +233,7 @@ function ConditionChecklist({ conditions, onChange }) {
                     onChange={e => set(cond.id, 'enabled', e.target.checked)}
                     className="w-4 h-4 accent-blue-600 flex-shrink-0"
                   />
-                  <span className={`text-sm select-none ${state.enabled ? 'text-gray-800' : 'text-gray-400'}`}>
+                  <span className={`text-sm select-none ${state.enabled ? 'text-gray-100' : 'text-gray-500'}`}>
                     {cond.label}
                   </span>
                   {cond.hasPattern && (
@@ -242,7 +242,8 @@ function ConditionChecklist({ conditions, onChange }) {
                       onChange={e => set(cond.id, 'pattern', e.target.value)}
                       disabled={!state.enabled}
                       onClick={e => e.stopPropagation()}
-                      className="ml-1 px-1.5 py-0.5 text-xs border border-gray-300 rounded bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-40 cursor-pointer"
+                      className="ml-1 px-1.5 py-0.5 text-xs border border-white/10 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-40 cursor-pointer"
+                      style={{ background: 'rgba(255,255,255,0.08)', color: '#e5e7eb' }}
                     >
                       {PATTERNS.map(p => <option key={p} value={p}>{p}</option>)}
                     </select>
@@ -257,7 +258,8 @@ function ConditionChecklist({ conditions, onChange }) {
                           onChange={e => set(cond.id, 'pct', e.target.value === 'custom' ? '' : e.target.value)}
                           disabled={!state.enabled}
                           onClick={e => e.stopPropagation()}
-                          className="ml-1 px-1.5 py-0.5 text-xs border border-gray-300 rounded bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-40 cursor-pointer"
+                          className="ml-1 px-1.5 py-0.5 text-xs border border-white/10 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-40 cursor-pointer"
+                      style={{ background: 'rgba(255,255,255,0.08)', color: '#e5e7eb' }}
                         >
                           <option value="7.3">7.3%</option>
                           <option value="14.6">14.6%</option>
@@ -274,10 +276,11 @@ function ConditionChecklist({ conditions, onChange }) {
                               onChange={e => set(cond.id, 'pct', e.target.value)}
                               disabled={!state.enabled}
                               onClick={e => e.stopPropagation()}
-                              className="w-16 px-1.5 py-0.5 text-xs border border-gray-300 rounded bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-40"
+                              className="w-16 px-1.5 py-0.5 text-xs border border-white/10 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-40"
+                              style={{ background: 'rgba(255,255,255,0.08)', color: '#e5e7eb' }}
                               placeholder="e.g. 21.9"
                             />
-                            <span className="text-xs text-gray-500 ml-0.5">%</span>
+                            <span className="text-xs text-gray-400 ml-0.5">%</span>
                           </span>
                         )}
                       </>
@@ -303,7 +306,7 @@ function ConditionChecklist({ conditions, onChange }) {
                         disabled={!state.enabled}
                         className="w-3.5 h-3.5 accent-blue-600"
                       />
-                      <span className="text-xs text-gray-500">{cond.bufferLabel}</span>
+                      <span className="text-xs text-gray-400">{cond.bufferLabel}</span>
                     </label>
                   )}
                 </label>
@@ -341,6 +344,12 @@ export default function MergeRules() {
   const [saveMsg,   setSaveMsg]   = useState(null);
   const [deleteId,  setDeleteId]  = useState(null);
 
+  // Exception mode state
+  const [formParentRuleId,   setFormParentRuleId]   = useState(null);
+  const [formParentRuleName, setFormParentRuleName] = useState('');
+  const [formExcOrder,       setFormExcOrder]       = useState(1);
+  const [excDeleteId,        setExcDeleteId]        = useState(null);
+
   // ── Data loading ────────────────────────────────────────────────────────────
 
   const loadRules = async () => {
@@ -362,6 +371,8 @@ export default function MergeRules() {
 
   const openAdd = () => {
     setEditingRule(null);
+    setFormParentRuleId(null);
+    setFormParentRuleName('');
     setFormName('');
     setFormDesc('');
     setFormOrder(rules.length ? Math.max(...rules.map(r => r.rule_order)) + 10 : 10);
@@ -374,8 +385,56 @@ export default function MergeRules() {
     setView(VIEWS.EDIT);
   };
 
+  const openAddException = (parentRule) => {
+    setEditingRule(null);
+    setFormParentRuleId(parentRule.id);
+    setFormParentRuleName(parentRule.name);
+    setFormExcOrder((parentRule.exceptions?.length ?? 0) + 1);
+    setFormName('');
+    setFormDesc('');
+    setFormEnabled(true);
+    setFormConditions({ ...DEFAULT_CONDITIONS });
+    setShowExpr(false);
+    setSaveMsg(null);
+    setView(VIEWS.EDIT);
+  };
+
+  const openEditException = async (exc, parentRule) => {
+    try {
+      const res = await api.getMergeRule(exc.id);
+      if (!res.success) return;
+      const full = res.rule;
+      setEditingRule(full);
+      setFormParentRuleId(full.parent_rule_id ?? parentRule.id);
+      setFormParentRuleName(parentRule.name);
+      setFormExcOrder(full.exception_order ?? exc.exception_order ?? 1);
+      setFormName(full.name);
+      setFormDesc(full.description || '');
+      setFormEnabled(full.is_enabled);
+      const tc = full.template_config || {};
+      if (tc.conditions) {
+        const restored = { ...DEFAULT_CONDITIONS, ...tc.conditions };
+        if (full.new_high_threshold != null) {
+          const pctStr = String(parseFloat((full.new_high_threshold * 100).toPrecision(6)));
+          if (restored.new_high_pct?.enabled) restored.new_high_pct = { ...restored.new_high_pct, pct: pctStr };
+          if (restored.new_low_pct?.enabled)  restored.new_low_pct  = { ...restored.new_low_pct,  pct: pctStr };
+        }
+        setFormConditions(restored);
+      } else {
+        setFormConditions({ ...DEFAULT_CONDITIONS });
+      }
+      setShowExpr(false);
+      setSaveMsg(null);
+      setView(VIEWS.EDIT);
+    } catch (e) {
+      setError('Failed to load exception.');
+    }
+  };
+
   const openEdit = (rule) => {
     setEditingRule(rule);
+    setFormParentRuleId(null);
+    setFormParentRuleName('');
     setFormName(rule.name);
     setFormDesc(rule.description || '');
     setFormOrder(rule.rule_order);
@@ -455,19 +514,22 @@ export default function MergeRules() {
       ? parsedPct / 100
       : null;
 
+    const isException = formParentRuleId != null;
+
     const payload = {
       name:        formName.trim(),
       description: formDesc.trim() || null,
-      rule_order:  formOrder,
+      rule_order:  isException ? 0 : formOrder,
       is_enabled:  formEnabled,
       rule_template:   'custom',
       template_config: { conditions: formConditions },
       expression:  currentExpression,
-      applies_to_timeframes: formTFs,
-      applies_to_patterns:   formPats,
+      applies_to_timeframes: isException ? [] : formTFs,
+      applies_to_patterns:   isException ? [] : formPats,
       trigger_level_expr,
       trigger_direction,
       new_high_threshold,
+      ...(isException ? { parent_rule_id: formParentRuleId, exception_order: formExcOrder } : {}),
     };
 
     try {
@@ -480,7 +542,8 @@ export default function MergeRules() {
         res = await api.createMergeRule(payload);
       }
       if (res.success) {
-        setSaveMsg({ type: 'success', text: editingRule ? 'Rule updated.' : 'Rule created.' });
+        const label = isException ? 'Exception' : 'Rule';
+        setSaveMsg({ type: 'success', text: editingRule ? `${label} updated.` : `${label} created.` });
         await loadRules();
         setTimeout(() => setView(VIEWS.LIST), 800);
       } else {
@@ -499,7 +562,12 @@ export default function MergeRules() {
     try {
       const res = await api.toggleMergeRule(rule.id);
       if (res.success) {
-        setRules(prev => prev.map(r => r.id === rule.id ? res.rule : r));
+        // Parent rule: update in-place; exception: reload to update nested array
+        if (!rule.parent_rule_id) {
+          setRules(prev => prev.map(r => r.id === rule.id ? { ...res.rule, exceptions: r.exceptions } : r));
+        } else {
+          await loadRules();
+        }
       }
     } catch (e) {
       setError('Toggle failed.');
@@ -508,12 +576,17 @@ export default function MergeRules() {
 
   // ── Delete ──────────────────────────────────────────────────────────────────
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id, isException = false) => {
     try {
       const res = await api.deleteMergeRule(id);
       if (res.success) {
-        setRules(prev => prev.filter(r => r.id !== id));
-        setDeleteId(null);
+        if (isException) {
+          setExcDeleteId(null);
+          await loadRules();
+        } else {
+          setRules(prev => prev.filter(r => r.id !== id));
+          setDeleteId(null);
+        }
       }
     } catch (e) {
       setError('Delete failed.');
@@ -554,12 +627,12 @@ export default function MergeRules() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
-            <SlidersHorizontal className="w-5 h-5 text-blue-600" />
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(59,130,246,0.15)' }}>
+            <SlidersHorizontal className="w-5 h-5 text-blue-400" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-800">Merge Rules</h1>
-            <p className="text-sm text-gray-500">Define conditions that prevent candle merging</p>
+            <h1 className="text-xl font-bold text-gray-100">Merge Rules</h1>
+            <p className="text-sm text-gray-400">Define conditions that prevent candle merging</p>
           </div>
         </div>
         {view === VIEWS.LIST && (
@@ -573,8 +646,9 @@ export default function MergeRules() {
         )}
         {view === VIEWS.EDIT && (
           <button
-            onClick={() => setView(VIEWS.LIST)}
-            className="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 rounded-xl text-sm font-medium border border-gray-300 hover:border-blue-400 transition-colors"
+            onClick={() => { setFormParentRuleId(null); setView(VIEWS.LIST); }}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border border-white/10 hover:border-blue-400 transition-colors text-gray-300 hover:text-gray-100"
+            style={{ background: 'rgba(255,255,255,0.05)' }}
           >
             <ArrowLeft className="w-4 h-4" />
             Back to list
@@ -584,7 +658,7 @@ export default function MergeRules() {
 
       {/* Error banner */}
       {error && (
-        <div className="flex items-center gap-2 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
+        <div className="flex items-center gap-2 p-3 rounded-xl text-red-400 text-sm" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}>
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           {error}
         </div>
@@ -599,16 +673,16 @@ export default function MergeRules() {
             className="space-y-3"
           >
             {loading ? (
-              <div className="flex items-center justify-center py-16 text-gray-400">
+              <div className="flex items-center justify-center py-16 text-gray-500">
                 <Loader2 className="w-6 h-6 animate-spin mr-2" />
                 Loading rules…
               </div>
             ) : rules.length === 0 ? (
               <div style={glass} className="rounded-2xl p-12 text-center">
-                <SlidersHorizontal className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-500 font-medium">No merge rules yet</p>
-                <p className="text-gray-400 text-sm mt-1">
-                  Click <strong>Add Rule</strong> to create your first condition.
+                <SlidersHorizontal className="w-10 h-10 text-gray-500 mx-auto mb-3" />
+                <p className="text-gray-300 font-medium">No merge rules yet</p>
+                <p className="text-gray-500 text-sm mt-1">
+                  Click <strong className="text-gray-300">Add Rule</strong> to create your first condition.
                   When the rules table is empty, all bars are merged by default.
                 </p>
                 <button
@@ -629,48 +703,53 @@ export default function MergeRules() {
                     {/* Order badge + arrows */}
                     <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
                       <button onClick={() => moveRule(idx, -1)} disabled={idx === 0}
-                        className="p-0.5 rounded hover:bg-gray-100 disabled:opacity-30 transition-colors">
-                        <ChevronUp className="w-4 h-4 text-gray-500" />
+                        className="p-0.5 rounded hover:bg-white/10 disabled:opacity-30 transition-colors">
+                        <ChevronUp className="w-4 h-4 text-gray-400" />
                       </button>
-                      <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-xs font-bold text-blue-700">
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-blue-400" style={{ background: 'rgba(59,130,246,0.15)' }}>
                         {rule.rule_order}
                       </div>
                       <button onClick={() => moveRule(idx, 1)} disabled={idx === rules.length - 1}
-                        className="p-0.5 rounded hover:bg-gray-100 disabled:opacity-30 transition-colors">
-                        <ChevronDown className="w-4 h-4 text-gray-500" />
+                        className="p-0.5 rounded hover:bg-white/10 disabled:opacity-30 transition-colors">
+                        <ChevronDown className="w-4 h-4 text-gray-400" />
                       </button>
                     </div>
 
                     {/* Content */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`font-semibold text-sm ${rule.is_enabled ? 'text-gray-800' : 'text-gray-400 line-through'}`}>
+                        <span className={`font-semibold text-sm ${rule.is_enabled ? 'text-gray-100' : 'text-gray-500 line-through'}`}>
                           {rule.name}
                         </span>
                         {LEGACY_TEMPLATES.has(rule.rule_template) && (
-                          <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-medium">
+                          <span className="px-2 py-0.5 rounded-full text-xs font-medium text-amber-400" style={{ background: 'rgba(245,158,11,0.15)' }}>
                             legacy
                           </span>
                         )}
                         {!rule.is_enabled && (
-                          <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 text-xs">disabled</span>
+                          <span className="px-2 py-0.5 rounded-full text-xs text-gray-500" style={{ background: 'rgba(255,255,255,0.06)' }}>disabled</span>
+                        )}
+                        {(rule.exceptions || []).length > 0 && (
+                          <span className="px-2 py-0.5 rounded-full text-xs text-violet-400" style={{ background: 'rgba(139,92,246,0.15)' }}>
+                            {rule.exceptions.length} exception{rule.exceptions.length !== 1 ? 's' : ''}
+                          </span>
                         )}
                       </div>
                       {rule.description && (
-                        <p className="text-xs text-gray-500 mt-0.5 truncate">{rule.description}</p>
+                        <p className="text-xs text-gray-400 mt-0.5 truncate">{rule.description}</p>
                       )}
                       <div className="flex flex-wrap gap-1 mt-2">
                         {(rule.applies_to_timeframes || []).length > 0
                           ? rule.applies_to_timeframes.map(tf => (
-                              <span key={tf} className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 text-xs">{tf}</span>
+                              <span key={tf} className="px-1.5 py-0.5 rounded text-xs text-blue-300" style={{ background: 'rgba(59,130,246,0.15)' }}>{tf}</span>
                             ))
-                          : <span className="px-1.5 py-0.5 rounded bg-gray-50 text-gray-500 text-xs">All TFs</span>
+                          : <span className="px-1.5 py-0.5 rounded text-xs text-gray-400" style={{ background: 'rgba(255,255,255,0.06)' }}>All TFs</span>
                         }
                         {(rule.applies_to_patterns || []).length > 0
                           ? rule.applies_to_patterns.map(p => (
-                              <span key={p} className="px-1.5 py-0.5 rounded bg-green-50 text-green-700 text-xs">{p}</span>
+                              <span key={p} className="px-1.5 py-0.5 rounded text-xs text-emerald-300" style={{ background: 'rgba(16,185,129,0.15)' }}>{p}</span>
                             ))
-                          : <span className="px-1.5 py-0.5 rounded bg-gray-50 text-gray-500 text-xs">All Patterns</span>
+                          : <span className="px-1.5 py-0.5 rounded text-xs text-gray-400" style={{ background: 'rgba(255,255,255,0.06)' }}>All Patterns</span>
                         }
                       </div>
                     </div>
@@ -678,35 +757,98 @@ export default function MergeRules() {
                     {/* Actions */}
                     <div className="flex items-center gap-1 flex-shrink-0">
                       <button onClick={() => handleToggle(rule)} title={rule.is_enabled ? 'Disable' : 'Enable'}
-                        className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors">
+                        className="p-1.5 rounded-lg hover:bg-white/10 transition-colors">
                         {rule.is_enabled
-                          ? <ToggleRight className="w-5 h-5 text-blue-600" />
-                          : <ToggleLeft  className="w-5 h-5 text-gray-400" />
+                          ? <ToggleRight className="w-5 h-5 text-blue-400" />
+                          : <ToggleLeft  className="w-5 h-5 text-gray-500" />
                         }
                       </button>
                       <button onClick={() => openEdit(rule)} title="Edit"
-                        className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors">
-                        <Edit2 className="w-4 h-4 text-gray-500" />
+                        className="p-1.5 rounded-lg hover:bg-white/10 transition-colors">
+                        <Edit2 className="w-4 h-4 text-gray-400" />
                       </button>
                       {deleteId === rule.id ? (
                         <div className="flex items-center gap-1">
-                          <span className="text-xs text-red-600">Delete?</span>
+                          <span className="text-xs text-red-400">Delete?</span>
                           <button onClick={() => handleDelete(rule.id)}
                             className="px-2 py-0.5 rounded bg-red-600 text-white text-xs font-medium hover:bg-red-700">
                             Yes
                           </button>
                           <button onClick={() => setDeleteId(null)}
-                            className="px-2 py-0.5 rounded bg-gray-200 text-gray-700 text-xs font-medium hover:bg-gray-300">
+                            className="px-2 py-0.5 rounded text-xs font-medium text-gray-300 hover:text-gray-100" style={{ background: 'rgba(255,255,255,0.08)' }}>
                             No
                           </button>
                         </div>
                       ) : (
                         <button onClick={() => setDeleteId(rule.id)} title="Delete"
-                          className="p-1.5 rounded-lg hover:bg-red-50 transition-colors">
-                          <Trash2 className="w-4 h-4 text-gray-400 hover:text-red-500" />
+                          className="p-1.5 rounded-lg hover:bg-red-500/10 transition-colors">
+                          <Trash2 className="w-4 h-4 text-gray-500 hover:text-red-400" />
                         </button>
                       )}
                     </div>
+                  </div>
+
+                  {/* ── Exceptions sub-section ──────────────────────────── */}
+                  <div className="mt-3 ml-11 space-y-1.5">
+                    {(rule.exceptions || []).length > 0 && (
+                      <p className="text-xs text-gray-500 mb-1">Exceptions — click to toggle individually:</p>
+                    )}
+                    {(rule.exceptions || []).map(exc => (
+                      <div key={exc.id} className="flex items-center gap-2 px-3 py-2 rounded-lg"
+                        style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.15)' }}>
+                        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${exc.is_enabled ? 'bg-violet-400' : 'bg-gray-600'}`} />
+                        <span className="text-xs text-gray-400 flex-shrink-0 font-mono">#{exc.exception_order}</span>
+                        <span className={`text-xs flex-1 truncate ${exc.is_enabled ? 'text-gray-200' : 'text-gray-500 line-through'}`}>
+                          {exc.name}
+                        </span>
+                        {exc.description && (
+                          <span className="text-xs text-gray-500 truncate hidden sm:block max-w-[200px]">{exc.description}</span>
+                        )}
+                        {/* Exception actions */}
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <button
+                            onClick={() => handleToggle(exc)}
+                            title={exc.is_enabled ? 'Disable exception' : 'Enable exception'}
+                            className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-colors ${
+                              exc.is_enabled
+                                ? 'bg-violet-500/20 text-violet-300 hover:bg-violet-500/30'
+                                : 'bg-gray-700/40 text-gray-500 hover:bg-gray-700/60'
+                            }`}
+                          >
+                            {exc.is_enabled
+                              ? <><ToggleRight className="w-3.5 h-3.5" /> Enabled</>
+                              : <><ToggleLeft  className="w-3.5 h-3.5" /> Disabled</>
+                            }
+                          </button>
+                          <button onClick={() => openEditException(exc, rule)} title="Edit exception"
+                            className="p-1 rounded hover:bg-white/10 transition-colors">
+                            <Edit2 className="w-3.5 h-3.5 text-gray-400" />
+                          </button>
+                          {excDeleteId === exc.id ? (
+                            <div className="flex items-center gap-1 ml-1">
+                              <span className="text-xs text-red-400">Delete?</span>
+                              <button onClick={() => handleDelete(exc.id, true)}
+                                className="px-1.5 py-0.5 rounded bg-red-600 text-white text-xs font-medium hover:bg-red-700">Yes</button>
+                              <button onClick={() => setExcDeleteId(null)}
+                                className="px-1.5 py-0.5 rounded text-xs text-gray-300" style={{ background: 'rgba(255,255,255,0.08)' }}>No</button>
+                            </div>
+                          ) : (
+                            <button onClick={() => setExcDeleteId(exc.id)} title="Delete exception"
+                              className="p-1 rounded hover:bg-red-500/10 transition-colors">
+                              <Trash2 className="w-3.5 h-3.5 text-gray-500 hover:text-red-400" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    {/* Add exception button */}
+                    <button
+                      onClick={() => openAddException(rule)}
+                      className="flex items-center gap-1.5 text-xs text-violet-400 hover:text-violet-300 transition-colors py-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Add Exception
+                    </button>
                   </div>
                 </motion.div>
               ))
@@ -722,61 +864,90 @@ export default function MergeRules() {
           >
             {/* Basic fields */}
             <div style={glass} className="rounded-2xl p-5 space-y-4">
-              <h2 className="font-semibold text-gray-800 text-sm">
-                {editingRule ? `Edit: ${editingRule.name}` : 'New Rule'}
+              {/* Exception breadcrumb */}
+              {formParentRuleId && (
+                <div className="flex items-center gap-2 text-xs text-violet-400 pb-1 border-b border-violet-500/20">
+                  <span className="px-2 py-0.5 rounded-full font-medium" style={{ background: 'rgba(139,92,246,0.15)' }}>Exception</span>
+                  <span className="text-gray-500">of rule:</span>
+                  <span className="text-violet-300 font-medium truncate">{formParentRuleName}</span>
+                </div>
+              )}
+
+              <h2 className="font-semibold text-gray-100 text-sm">
+                {editingRule
+                  ? `Edit: ${editingRule.name}`
+                  : formParentRuleId ? 'New Exception' : 'New Rule'}
               </h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs text-gray-500 block mb-1">Rule name *</label>
+                  <label className="text-xs text-gray-400 block mb-1">
+                    {formParentRuleId ? 'Exception name *' : 'Rule name *'}
+                  </label>
                   <input value={formName} onChange={e => setFormName(e.target.value)}
-                    placeholder="e.g. JGD crossed RC 38.2%"
-                    className="w-full px-3 py-2 rounded-xl border border-gray-300 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white/80"
+                    placeholder={formParentRuleId ? 'e.g. JGD trigger TVHS' : 'e.g. JGD crossed RC 38.2%'}
+                    className="w-full px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 text-gray-100 placeholder-gray-600"
+                    style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
                   />
                 </div>
-                <div>
-                  <label className="text-xs text-gray-500 block mb-1">Rule order</label>
-                  <input type="number" value={formOrder} onChange={e => setFormOrder(Number(e.target.value))}
-                    className="w-full px-3 py-2 rounded-xl border border-gray-300 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white/80"
-                  />
-                </div>
+                {formParentRuleId ? (
+                  <div>
+                    <label className="text-xs text-gray-400 block mb-1">Exception order</label>
+                    <input type="number" value={formExcOrder} onChange={e => setFormExcOrder(Number(e.target.value))}
+                      className="w-full px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 text-gray-100"
+                      style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+                    />
+                  </div>
+                ) : (
+                  <div>
+                    <label className="text-xs text-gray-400 block mb-1">Rule order</label>
+                    <input type="number" value={formOrder} onChange={e => setFormOrder(Number(e.target.value))}
+                      className="w-full px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 text-gray-100"
+                      style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+                    />
+                  </div>
+                )}
               </div>
 
               <div>
-                <label className="text-xs text-gray-500 block mb-1">Description</label>
+                <label className="text-xs text-gray-400 block mb-1">Description</label>
                 <input value={formDesc} onChange={e => setFormDesc(e.target.value)}
                   placeholder="Optional — shown in the rule list"
-                  className="w-full px-3 py-2 rounded-xl border border-gray-300 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white/80"
+                  className="w-full px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 text-gray-100 placeholder-gray-600"
+                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
                 />
               </div>
 
               <div className="flex items-center gap-3">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={formEnabled} onChange={e => setFormEnabled(e.target.checked)}
-                    className="w-4 h-4 accent-blue-600" />
-                  <span className="text-sm text-gray-700">Enabled</span>
+                    className="w-4 h-4 accent-emerald-500" />
+                  <span className="text-sm text-gray-300">Enabled</span>
                 </label>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <ChipMultiSelect
-                  label="Applies to timeframes"
-                  options={TIMEFRAMES}
-                  value={formTFs}
-                  onChange={setFormTFs}
-                />
-                <ChipMultiSelect
-                  label="Applies to patterns"
-                  options={PATTERNS}
-                  value={formPats}
-                  onChange={setFormPats}
-                />
-              </div>
+              {/* Scope filters — hidden for exceptions (they inherit from parent) */}
+              {!formParentRuleId && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <ChipMultiSelect
+                    label="Applies to timeframes"
+                    options={TIMEFRAMES}
+                    value={formTFs}
+                    onChange={setFormTFs}
+                  />
+                  <ChipMultiSelect
+                    label="Applies to patterns"
+                    options={PATTERNS}
+                    value={formPats}
+                    onChange={setFormPats}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Legacy rule notice */}
             {isLegacyRule && (
-              <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+              <div className="flex items-start gap-2 p-3 rounded-xl text-amber-400 text-sm" style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.2)' }}>
                 <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
                 <span>
                   This rule was created with the old template system.
@@ -788,8 +959,8 @@ export default function MergeRules() {
             {/* Condition checklist */}
             <div style={glass} className="rounded-2xl p-5 space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="font-semibold text-gray-800 text-sm">Conditions</h2>
-                <span className="text-xs text-gray-400">All checked conditions must be true (AND)</span>
+                <h2 className="font-semibold text-gray-100 text-sm">Conditions</h2>
+                <span className="text-xs text-gray-500">All checked conditions must be true (AND)</span>
               </div>
               <ConditionChecklist
                 conditions={formConditions}
@@ -802,7 +973,7 @@ export default function MergeRules() {
               <div style={glass} className="rounded-2xl p-5">
                 <button
                   onClick={() => setShowExpr(v => !v)}
-                  className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 transition-colors"
+                  className="flex items-center gap-2 text-sm text-gray-400 hover:text-gray-100 transition-colors"
                 >
                   {showExpr ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   {showExpr ? 'Hide' : 'Preview'} generated expression
@@ -817,11 +988,13 @@ export default function MergeRules() {
 
             {/* Save message */}
             {saveMsg && (
-              <div className={`flex items-center gap-2 p-3 rounded-xl text-sm border ${
-                saveMsg.type === 'success'
-                  ? 'bg-green-50 border-green-200 text-green-700'
-                  : 'bg-red-50 border-red-200 text-red-700'
-              }`}>
+              <div
+                className="flex items-center gap-2 p-3 rounded-xl text-sm"
+                style={saveMsg.type === 'success'
+                  ? { background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', color: '#34d399' }
+                  : { background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171' }
+                }
+              >
                 {saveMsg.type === 'success'
                   ? <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
                   : <AlertCircle  className="w-4 h-4 flex-shrink-0" />
@@ -833,12 +1006,13 @@ export default function MergeRules() {
             {/* Action buttons */}
             <div className="flex gap-3">
               <button onClick={handleSave} disabled={saving}
-                className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-60 transition-colors">
+                className={`flex items-center gap-2 px-5 py-2.5 text-white rounded-xl text-sm font-medium disabled:opacity-60 transition-colors ${formParentRuleId ? 'bg-violet-600 hover:bg-violet-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                {saving ? 'Saving…' : 'Save Rule'}
+                {saving ? 'Saving…' : formParentRuleId ? 'Save Exception' : 'Save Rule'}
               </button>
-              <button onClick={() => setView(VIEWS.LIST)}
-                className="px-5 py-2.5 bg-white text-gray-700 rounded-xl text-sm font-medium border border-gray-300 hover:border-gray-400 transition-colors">
+              <button onClick={() => { setFormParentRuleId(null); setView(VIEWS.LIST); }}
+                className="px-5 py-2.5 rounded-xl text-sm font-medium border border-white/10 hover:border-white/20 text-gray-300 hover:text-gray-100 transition-colors"
+                style={{ background: 'rgba(255,255,255,0.05)' }}>
                 Cancel
               </button>
             </div>

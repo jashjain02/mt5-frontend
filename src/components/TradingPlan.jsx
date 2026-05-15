@@ -10,7 +10,9 @@ const FIB_LEVELS = [
 ];
 
 const TIMEFRAME_DISPLAY_NAMES = {
-  H1: '1 Hour', H4: '4 Hours', H5: '5 Hours', D1: 'Daily', W1: 'Weekly'
+  M5: '5 Min', M15: '15 Min', M30: '30 Min',
+  H1: '1 Hour', H4: '4 Hours', H5: '5 Hours', '5H+': '5H+',
+  D1: 'Daily', W1: 'Weekly', MN1: 'Monthly',
 };
 const getTimeframeDisplayName = (tf) => TIMEFRAME_DISPLAY_NAMES[tf] || tf;
 
@@ -36,18 +38,28 @@ const TradingPlan = () => {
   const reconnectTimeoutRef = useRef(null);
   const lastFormingBarRef = useRef({ timeframe: null, timestamp: null });  // Track {timeframe, timestamp} — timeframe-aware to avoid false isNewBar on switch
 
-  const timeframes = ['H1', 'H4', 'H5', 'D1', 'W1'];
+  const timeframes = ['M5', 'M15', 'M30', 'H1', 'H4', 'H5', '5H+', 'D1', 'W1', 'MN1'];
+
+  // Minutes per timeframe period
+  const TF_MINUTES = {
+    M5: 5, M15: 15, M30: 30,
+    H1: 60, H4: 240, H5: 300, '5H+': 300,
+    D1: 1440, W1: 10080, MN1: 43200,
+  };
 
   // Generate available timestamps based on timeframe
   useEffect(() => {
     if (selectedDate && selectedTimeframe) {
-      const intervals = { H1: 1, H4: 4, H5: 5, D1: 24, W1: 168 };
-      const hours = intervals[selectedTimeframe] || 1;
+      const periodMins = TF_MINUTES[selectedTimeframe] || 60;
       const timestamps = [];
-      for (let h = 0; h < 24; h += hours) {
-        const start = `${String(h).padStart(2, '0')}:00:00`;
-        const end = `${String(Math.min(h + hours - 1, 23)).padStart(2, '0')}:59:59`;
-        timestamps.push(`${start} - ${end}`);
+      const totalMins = periodMins >= 1440 ? 1440 : 1440; // always generate for 24h window
+      for (let m = 0; m < totalMins; m += periodMins) {
+        const hh = String(Math.floor(m / 60)).padStart(2, '0');
+        const mm = String(m % 60).padStart(2, '0');
+        const endM = m + periodMins - 1;
+        const ehh = String(Math.floor(Math.min(endM, 1439) / 60)).padStart(2, '0');
+        const emm = String(Math.min(endM, 1439) % 60).padStart(2, '0');
+        timestamps.push(`${hh}:${mm}:00 - ${ehh}:${emm}:59`);
       }
       if (timestamps.length === 0) timestamps.push('00:00:00 - 23:59:59');
       setAvailableTimestamps(timestamps);
@@ -61,11 +73,11 @@ const TradingPlan = () => {
   }, [selectedDate, selectedTimeframe]);
 
   const glassStyle = {
-    background: 'rgba(255, 255, 255, 0.7)',
+    background: 'rgba(255,255,255,0.04)',
     backdropFilter: 'blur(10px)',
     WebkitBackdropFilter: 'blur(10px)',
-    border: '1px solid rgba(255, 255, 255, 0.3)',
-    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.05)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    boxShadow: '0 4px 24px rgba(0,0,0,0.30)',
   };
 
   // Format display date with timestamp
@@ -170,8 +182,8 @@ const TradingPlan = () => {
   const getNextBarTimestamp = (completedTimestamp, timeframe) => {
     if (!completedTimestamp) return null;
     const date = new Date(completedTimestamp.replace(' ', 'T'));
-    const hours = { H1: 1, H4: 4, H5: 5, D1: 24, W1: 168 }[timeframe] || 1;
-    date.setHours(date.getHours() + hours);
+    const mins = TF_MINUTES[timeframe] || 60;
+    date.setMinutes(date.getMinutes() + mins);
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, '0');
     const d = String(date.getDate()).padStart(2, '0');
@@ -181,21 +193,29 @@ const TradingPlan = () => {
     return `${y}-${m}-${d} ${h}:${min}:${s}`;
   };
 
+  const hasRcValues = (bar) => {
+    const rc = bar?.rising_channel;
+    return rc && Object.values(rc).some(v => v !== null && v !== undefined && v !== 0);
+  };
+
   // Fetch latest trading plan data (for live mode)
   const loadLatestPlan = async () => {
     setIsLoadingApi(true);
     setError('');
 
     try {
-      // Fetch latest COMPLETED bar for RC/FC levels display
-      // During 08:00 hour, this returns 07:00 bar (whose levels are used for crossing detection)
+      // Fetch 2 bars: offset-0 may be the forming bar (zeros), offset-1 is the completed bar
       const response = await api.getCalculatedValues('XAUUSD', selectedTimeframe, {
-        limit: 1,
+        limit: 2,
         offset: 0,
       });
 
       if (response.success && response.data.length > 0) {
-        const completedBar = response.data[0];
+        // Skip forming bar if it has no computed RC/FC values yet
+        const completedBar =
+          (response.data.length > 1 && !hasRcValues(response.data[0]))
+            ? response.data[1]
+            : response.data[0];
 
         // Display the completed bar's RC/FC levels (matches what backend uses for crossing detection)
         const transformedData = transformApiDataToTradingPlan(completedBar);
@@ -291,48 +311,32 @@ const TradingPlan = () => {
               if (!currentPlan) return currentPlan;
 
               if (isNewBar) {
-                // New bar: update the FULL plan from WebSocket data immediately
-                // The backend now sends complete calculated values (RC/FC + abs_range, buffer, jgd, jwd, d_pat, close)
-                // This ensures the UI always shows correct data even if the DB is stale
-                return {
-                  ...transformedData,
-                  formingBarTimestamp: currentPlan.formingBarTimestamp,
-                  tradeLogs: [],  // Reset for new bar
-                };
-              }
-
-              const d = message.data;
-              const highChanged = transformedData.marketData?.high !== currentPlan.marketData?.high;
-              const lowChanged = transformedData.marketData?.low !== currentPlan.marketData?.low;
-
-              if (highChanged || lowChanged) {
-                // Update marketData from current forming bar, not RC/FC levels
+                // New bar just opened — the forming bar has no RC/FC yet.
+                // Keep the existing RC/FC levels (they're still valid for crossing detection)
+                // and only reset market data + trade logs. loadLatestPlan() runs in parallel
+                // and will overwrite with the completed bar's values once the DB is ready.
                 return {
                   ...currentPlan,
-                  marketData: {
-                    ...currentPlan.marketData,
-                    open: transformedData.marketData?.open,
-                    high: transformedData.marketData?.high,
-                    low: transformedData.marketData?.low,
-                    close: transformedData.marketData?.last,  // Forming bar's close = last price
-                    bid: transformedData.marketData?.bid,
-                    ask: transformedData.marketData?.ask,
-                    last: transformedData.marketData?.last,
-                    spread: transformedData.marketData?.spread,
-                  },
-                  tradeLogs: currentPlan.tradeLogs || [],
+                  marketData: transformedData.marketData,
+                  tradeLogs: [],
                 };
               }
-              // Only update tick-driven fields without re-rendering the whole plan
+
+              // Forming bar only updates live price fields — RC/FC always come from the
+              // previous completed bar loaded via loadLatestPlan, never from the WS.
+              const md = transformedData.marketData;
               return {
                 ...currentPlan,
                 marketData: {
                   ...currentPlan.marketData,
-                  close: transformedData.marketData?.last,  // Forming bar's close = last price
-                  bid: transformedData.marketData?.bid,
-                  ask: transformedData.marketData?.ask,
-                  last: transformedData.marketData?.last,
-                  spread: transformedData.marketData?.spread,
+                  open:   md?.open   ?? currentPlan.marketData?.open,
+                  high:   md?.high   ?? currentPlan.marketData?.high,
+                  low:    md?.low    ?? currentPlan.marketData?.low,
+                  last:   md?.last   ?? currentPlan.marketData?.last,
+                  close:  null,   // forming bar has no close yet
+                  bid:    md?.bid    ?? currentPlan.marketData?.bid,
+                  ask:    md?.ask    ?? currentPlan.marketData?.ask,
+                  spread: md?.spread ?? currentPlan.marketData?.spread,
                 },
               };
             });
@@ -341,9 +345,11 @@ const TradingPlan = () => {
           return prev;
         });
 
-        // If new bar started, also reload from API as backup (for trade logs)
+        // New bar: reload from API to get the just-closed bar's computed RC/FC values.
+        // Retry after 15s in case the backend takes a moment to finish computation.
         if (isNewBar) {
           loadLatestPlan();
+          setTimeout(loadLatestPlan, 15000);
         }
       } else if (message.type === 'trade_log') {
         // Only append live trade logs when in live mode
@@ -444,7 +450,7 @@ const TradingPlan = () => {
     <div className="space-y-5">
       {/* Header */}
       <div>
-        <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-2">
+        <h1 className="text-2xl lg:text-3xl font-bold text-gray-100 mb-2">
           Trading Plan
         </h1>
         <p className="text-gray-500">
@@ -468,7 +474,7 @@ const TradingPlan = () => {
             type="date"
             value={selectedDate}
             onChange={(e) => setSelectedDate(e.target.value)}
-            className="px-4 py-2.5 rounded-xl border border-gray-200 bg-white/80 text-gray-900 text-sm font-medium min-w-[180px] hover:border-blue-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-colors"
+            className="input-dark min-w-[180px] focus:border-emerald-500 focus:shadow-[0_0_0_3px_rgba(16,185,129,0.12)]"
           />
         </div>
 
@@ -479,14 +485,15 @@ const TradingPlan = () => {
           </label>
           <button
             onClick={() => setIsTimeframeDropdownOpen(!isTimeframeDropdownOpen)}
-            className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl border border-gray-200 bg-white/80 text-gray-900 text-sm font-medium min-w-[130px] hover:border-blue-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-colors"
+            className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl border border-white/[0.08] text-gray-100 text-sm font-medium min-w-[130px] hover:border-emerald-500/40 transition-colors focus:outline-none"
+            style={{ background: 'rgba(255,255,255,0.05)' }}
           >
             <span>{getTimeframeDisplayName(selectedTimeframe)}</span>
-            <ChevronDown size={18} className={`transition-transform ${isTimeframeDropdownOpen ? 'rotate-180' : ''}`} />
+            <ChevronDown size={18} className={`transition-transform text-gray-400 ${isTimeframeDropdownOpen ? 'rotate-180' : ''}`} />
           </button>
 
           {isTimeframeDropdownOpen && (
-            <div className="absolute top-full left-0 mt-2 w-full bg-white rounded-xl border border-gray-200 shadow-xl z-[9999] max-h-60 overflow-y-auto">
+            <div className="absolute top-full left-0 mt-2 w-full rounded-xl border border-white/[0.08] shadow-xl z-[9999] max-h-60 overflow-y-auto" style={{ background: '#0d1421' }}>
               {timeframes.map((tf) => (
                 <button
                   key={tf}
@@ -494,8 +501,8 @@ const TradingPlan = () => {
                     setSelectedTimeframe(tf);
                     setIsTimeframeDropdownOpen(false);
                   }}
-                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors first:rounded-t-xl last:rounded-b-xl ${
-                    selectedTimeframe === tf ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors first:rounded-t-xl last:rounded-b-xl ${
+                    selectedTimeframe === tf ? 'bg-emerald-500/10 text-emerald-400 font-medium' : 'text-gray-400 hover:bg-white/[0.05] hover:text-gray-100'
                   }`}
                 >
                   {getTimeframeDisplayName(tf)}
@@ -513,19 +520,20 @@ const TradingPlan = () => {
           <button
             onClick={() => setIsTimestampDropdownOpen(!isTimestampDropdownOpen)}
             disabled={availableTimestamps.length === 0}
-            className={`flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl border border-gray-200 bg-white/80 text-gray-900 text-sm font-medium min-w-[200px] hover:border-blue-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-colors ${
-              availableTimestamps.length === 0 ? 'opacity-50 cursor-not-allowed' : ''
+            className={`flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl border border-white/[0.08] text-gray-100 text-sm font-medium min-w-[200px] hover:border-emerald-500/40 transition-colors focus:outline-none ${
+              availableTimestamps.length === 0 ? 'opacity-40 cursor-not-allowed' : ''
             }`}
+            style={{ background: 'rgba(255,255,255,0.05)' }}
           >
             <div className="flex items-center gap-2">
-              <Clock size={14} className="text-gray-400" />
+              <Clock size={14} className="text-gray-500" />
               <span className="truncate">{selectedTimestamp || 'Select time...'}</span>
             </div>
-            <ChevronDown size={18} className={`transition-transform flex-shrink-0 ${isTimestampDropdownOpen ? 'rotate-180' : ''}`} />
+            <ChevronDown size={18} className={`transition-transform flex-shrink-0 text-gray-400 ${isTimestampDropdownOpen ? 'rotate-180' : ''}`} />
           </button>
 
           {isTimestampDropdownOpen && availableTimestamps.length > 0 && (
-            <div className="absolute top-full left-0 mt-2 w-full bg-white rounded-xl border border-gray-200 shadow-xl z-[9999] max-h-60 overflow-y-auto">
+            <div className="absolute top-full left-0 mt-2 w-full rounded-xl border border-white/[0.08] shadow-xl z-[9999] max-h-60 overflow-y-auto" style={{ background: '#0d1421' }}>
               {availableTimestamps.map((ts) => (
                 <button
                   key={ts}
@@ -533,8 +541,8 @@ const TradingPlan = () => {
                     setSelectedTimestamp(ts);
                     setIsTimestampDropdownOpen(false);
                   }}
-                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors first:rounded-t-xl last:rounded-b-xl font-mono ${
-                    selectedTimestamp === ts ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors first:rounded-t-xl last:rounded-b-xl font-mono ${
+                    selectedTimestamp === ts ? 'bg-emerald-500/10 text-emerald-400 font-medium' : 'text-gray-400 hover:bg-white/[0.05] hover:text-gray-100'
                   }`}
                 >
                   {ts}
@@ -546,7 +554,7 @@ const TradingPlan = () => {
 
         <motion.button
           onClick={handleLoadPlan}
-          className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors text-sm font-medium"
+          className="btn-accent flex items-center gap-2"
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
         >
@@ -554,60 +562,54 @@ const TradingPlan = () => {
           {isLoadingApi ? 'Loading...' : 'Load Plan'}
         </motion.button>
 
-        {/* Mode Indicator - Shows Live or Historical status */}
+        {/* Mode Indicator */}
         {planData && (
           <div className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium text-sm ${
-            isLiveMode
-              ? 'bg-green-50 text-green-600 border border-green-200'
-              : 'bg-blue-50 text-blue-600 border border-blue-200'
+            isLiveMode ? 'badge-connected' : 'badge-checking'
           }`}>
             {isLiveMode ? (
               <>
-                {wsConnected ? <Wifi size={18} className="animate-pulse" /> : <WifiOff size={18} />}
+                {wsConnected ? <Wifi size={16} className="animate-pulse" /> : <WifiOff size={16} />}
                 <span className="font-semibold">LIVE MODE</span>
-                {wsConnected && <span className="text-xs text-green-500">• Connected</span>}
-                {planData?.formingBarTimestamp && <span className="text-xs text-green-600 ml-1">| Monitoring: {planData.formingBarTimestamp}</span>}
+                {wsConnected && <span className="text-xs opacity-80">• Connected</span>}
+                {planData?.formingBarTimestamp && <span className="text-xs opacity-70 ml-1">| Monitoring: {planData.formingBarTimestamp}</span>}
               </>
             ) : (
               <>
-                <Clock size={18} />
+                <Clock size={16} />
                 <span className="font-semibold">HISTORICAL</span>
-                <span className="text-xs text-blue-500">• {getDisplayDateTime() || planData?.timestamp || 'Last available'}</span>
+                <span className="text-xs opacity-80">• {getDisplayDateTime() || planData?.timestamp || 'Last available'}</span>
               </>
             )}
           </div>
         )}
 
-        {/* Back to Live Button - Only show when in historical mode */}
+        {/* Back to Live Button */}
         {planData && !isLiveMode && (
           <motion.button
             onClick={() => {
-              // Clear filters
               setSelectedDate('');
               setSelectedTimestamp('');
-              // Load latest data and enable live mode
               loadLatestPlan();
             }}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-green-50 text-green-600 hover:bg-green-100 transition-colors text-sm font-medium border border-green-200"
+            className="btn-ghost-dark flex items-center gap-2"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
           >
-            <RefreshCw size={18} />
+            <RefreshCw size={16} />
             Back to Live
           </motion.button>
         )}
 
-        {/* Show available info */}
         {selectedDate && (
-          <div className="text-xs text-gray-400 sm:ml-auto">
+          <div className="text-xs text-gray-500 sm:ml-auto">
             {availableTimestamps.length} timestamps available
           </div>
         )}
       </motion.div>
 
-      {/* Error */}
       {error && (
-        <div className="flex items-center gap-2 p-4 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm">
+        <div className="flex items-center gap-2 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
           <AlertCircle size={18} />
           {error}
         </div>
@@ -622,20 +624,16 @@ const TradingPlan = () => {
       {/* Trading Plan Diagram */}
       {planData && <TradingPlanDiagram data={planData} />}
 
-      {/* Loading state */}
       {!planData && !error && isLoadingApi && (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 flex flex-col items-center justify-center min-h-[300px]">
-          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-          <p className="text-gray-500 text-center">
-            Loading latest trading plan...
-          </p>
+        <div className="card-dark p-8 flex flex-col items-center justify-center min-h-[300px]">
+          <div className="w-12 h-12 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+          <p className="text-gray-500 text-center">Loading latest trading plan...</p>
         </div>
       )}
 
-      {/* Empty state if initial load fails */}
       {!planData && !error && !isLoadingApi && (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 flex flex-col items-center justify-center min-h-[300px]">
-          <Calendar className="w-12 h-12 text-gray-300 mb-4" />
+        <div className="card-dark p-8 flex flex-col items-center justify-center min-h-[300px]">
+          <Calendar className="w-12 h-12 text-gray-600 mb-4" />
           <p className="text-gray-500 text-center">
             Failed to load latest data. Use filters to load historical data.
           </p>
@@ -650,13 +648,12 @@ const formatPrice = (price) => {
   return price.toFixed(2);
 };
 
-// Glass style for components
 const glassStyleShared = {
-  background: 'rgba(255, 255, 255, 0.7)',
+  background: 'rgba(255,255,255,0.04)',
   backdropFilter: 'blur(10px)',
   WebkitBackdropFilter: 'blur(10px)',
-  border: '1px solid rgba(255, 255, 255, 0.3)',
-  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.05)',
+  border: '1px solid rgba(255,255,255,0.08)',
+  boxShadow: '0 4px 24px rgba(0,0,0,0.30)',
 };
 
 // Market Data Row Component with 15 columns
@@ -696,7 +693,7 @@ const MarketDataRow = ({ data }) => {
       <div className="overflow-x-auto">
         <table className="w-full min-w-[1000px]">
           <thead>
-            <tr className="border-b border-gray-200">
+            <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
               {fields.map((field) => (
                 <th
                   key={field.key}
@@ -713,10 +710,10 @@ const MarketDataRow = ({ data }) => {
                 <td
                   key={field.key}
                   className={`px-2 py-3 text-sm font-mono font-medium text-center whitespace-nowrap ${
-                    field.key === 'symbol' ? 'text-gray-900 font-bold' :
-                    field.key === 'close' && data?.[field.key] === null ? 'text-blue-600 font-bold' :
-                    field.key === 'change' ? (data?.[field.key] >= 0 ? 'text-green-600' : 'text-red-600') :
-                    'text-gray-700'
+                    field.key === 'symbol' ? 'text-gray-100 font-bold' :
+                    field.key === 'close' && data?.[field.key] === null ? 'text-emerald-400 font-bold' :
+                    field.key === 'change' ? (data?.[field.key] >= 0 ? 'text-emerald-400' : 'text-red-400') :
+                    'text-gray-300'
                   }`}
                 >
                   {formatValue(field, data?.[field.key])}
@@ -738,25 +735,25 @@ const TradeLogsSection = ({ logs }) => (
     className="rounded-2xl overflow-hidden"
     style={glassStyleShared}
   >
-    <div className="p-4 border-b border-gray-200 flex items-center gap-2">
+    <div className="p-4 flex items-center gap-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
       <FileText size={18} className="text-gray-500" />
-      <h3 className="font-semibold text-gray-900">Trade Activity Logs</h3>
+      <h3 className="font-semibold text-gray-100">Trade Activity Logs</h3>
     </div>
     <div className="max-h-[200px] overflow-y-auto">
       {logs && logs.length > 0 ? (
         logs.map((log, idx) => (
-          <div key={idx} className="flex items-start gap-3 px-4 py-2.5 border-b border-gray-100 last:border-0 hover:bg-gray-50/50 transition-colors">
-            <span className="text-xs font-mono text-gray-400 whitespace-nowrap mt-0.5">{log.time}</span>
+          <div key={idx} className="flex items-start gap-3 px-4 py-2.5 last:border-0 hover:bg-white/[0.03] transition-colors" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+            <span className="text-xs font-mono text-gray-500 whitespace-nowrap mt-0.5">{log.time}</span>
             <span className={`text-xs font-semibold px-2 py-0.5 rounded shrink-0 ${
-              log.type === 'CROSS_ABOVE' || log.type === 'BUY' ? 'bg-green-100 text-green-700' :
-              log.type === 'CROSS_BELOW' || log.type === 'SELL' ? 'bg-red-100 text-red-700' :
-              'bg-gray-100 text-gray-600'
+              log.type === 'CROSS_ABOVE' || log.type === 'BUY' ? 'bg-emerald-500/15 text-emerald-400' :
+              log.type === 'CROSS_BELOW' || log.type === 'SELL' ? 'bg-red-500/15 text-red-400' :
+              'bg-white/[0.06] text-gray-400'
             }`}>{log.type}</span>
-            <span className="text-sm text-gray-700">{log.message}</span>
+            <span className="text-sm text-gray-300">{log.message}</span>
           </div>
         ))
       ) : (
-        <div className="p-4 text-center text-gray-400 text-sm">No trade activity logs</div>
+        <div className="p-4 text-center text-gray-500 text-sm">No trade activity logs</div>
       )}
     </div>
   </motion.div>
@@ -795,11 +792,11 @@ const calculateMiddleValueRows = (rows, numColumns) => {
 // The spreadsheet-style diagram
 const TradingPlanDiagram = ({ data }) => {
   const glassStyle = {
-    background: 'rgba(255, 255, 255, 0.7)',
+    background: 'rgba(255,255,255,0.04)',
     backdropFilter: 'blur(10px)',
     WebkitBackdropFilter: 'blur(10px)',
-    border: '1px solid rgba(255, 255, 255, 0.3)',
-    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.05)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    boxShadow: '0 4px 24px rgba(0,0,0,0.30)',
   };
 
   const totalCols = FIB_LEVELS.length; // 9
@@ -865,7 +862,7 @@ const TradingPlanDiagram = ({ data }) => {
               <tr>
                 <th
                   colSpan={totalCols}
-                  className="text-center text-sm font-bold text-gray-900 p-2"
+                  className="text-center text-sm font-bold text-gray-950 p-2"
                   style={{ background: 'linear-gradient(to right, #fbbf24, #f59e0b)' }}
                 >
                   {data.formingBarTimestamp ? `${data.formingBarTimestamp.slice(11, 16)}` : ''} {data.timeframe} TRADING PLAN
@@ -904,7 +901,7 @@ const TradingPlanDiagram = ({ data }) => {
                           val !== null
                             ? isHighlighted
                               ? 'bg-green-300 text-green-950 font-bold'
-                              : 'text-gray-900'
+                              : 'text-gray-200'
                             : ''
                         }`}
                       >
@@ -921,7 +918,7 @@ const TradingPlanDiagram = ({ data }) => {
 
               {/* ===== SPACER ROW AFTER RC ===== */}
               <tr>
-                <td colSpan={9} className="bg-white h-6" />
+                <td colSpan={9} className="h-6" style={{ background: 'rgba(255,255,255,0.04)' }} />
               </tr>
 
               {/* ===== CENTER MARKERS (UTP/DTP/MUTP/MDTP if in center) ===== */}
@@ -932,7 +929,7 @@ const TradingPlanDiagram = ({ data }) => {
 
               {/* ===== SPACER ROW BEFORE MIDDLE SECTION ===== */}
               <tr>
-                <td colSpan={9} className="bg-white h-6" />
+                <td colSpan={9} className="h-6" style={{ background: 'rgba(255,255,255,0.04)' }} />
               </tr>
 
               {/* ===== MIDDLE REFERENCE SECTION ===== */}
@@ -943,7 +940,7 @@ const TradingPlanDiagram = ({ data }) => {
                 <td className="bg-green-300 text-[10px] font-bold text-gray-900 p-1 text-center">BUFFER</td>
                 <td className="bg-green-300 text-[10px] font-bold text-gray-900 p-1 text-center">PREV CLOSE</td>
                 {/* Empty cols - adjusts based on number of reference columns */}
-                <td colSpan={5 - data.referenceLevels.headers.length} className="bg-white p-0.5" />
+                <td colSpan={5 - data.referenceLevels.headers.length} className="p-0.5" style={{ background: 'rgba(255,255,255,0.04)' }} />
                 {/* Reference headers (BDP-WDP, d_pat columns) */}
                 {data.referenceLevels.headers.map((header) => (
                   <td key={header} className="bg-green-300 text-[10px] font-bold text-gray-900 p-1 text-center">
@@ -965,7 +962,7 @@ const TradingPlanDiagram = ({ data }) => {
                   {formatPrice(data.middleValues?.prevClose)}
                 </td>
                 {/* Empty cols - adjusts based on number of reference columns */}
-                <td colSpan={5 - data.referenceLevels.headers.length} className="bg-white p-0.5" />
+                <td colSpan={5 - data.referenceLevels.headers.length} className="p-0.5" style={{ background: 'rgba(255,255,255,0.04)' }} />
                 {/* First row values for reference columns */}
                 {data.referenceLevels.rows[0].map((val, i) => (
                   <td
@@ -980,7 +977,7 @@ const TradingPlanDiagram = ({ data }) => {
               {/* Second row for BDP-WDP/2+2 only */}
               <tr>
                 {/* Empty cols - adjusts based on number of reference columns */}
-                <td colSpan={9 - data.referenceLevels.headers.length} className="bg-white p-0.5" />
+                <td colSpan={9 - data.referenceLevels.headers.length} className="p-0.5" style={{ background: 'rgba(255,255,255,0.04)' }} />
                 {/* Second row values for reference columns */}
                 {data.referenceLevels.rows[1].map((val, i) => (
                   <td
@@ -994,7 +991,7 @@ const TradingPlanDiagram = ({ data }) => {
 
               {/* ===== SPACER ROW BEFORE FC ===== */}
               <tr>
-                <td colSpan={9} className="bg-white h-12" />
+                <td colSpan={9} className="h-12" style={{ background: 'rgba(255,255,255,0.04)' }} />
               </tr>
 
               {/* ===== FC (Falling Channel) SECTION ===== */}

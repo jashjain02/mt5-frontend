@@ -30,10 +30,15 @@ const FC_CLOSE_LEVELS = [
 ];
 
 const glassStyle = {
-  background: 'rgba(255,255,255,0.7)',
-  backdropFilter: 'blur(20px)',
-  border: '1px solid rgba(255,255,255,0.3)',
-  boxShadow: '0 8px 32px rgba(0,0,0,0.08)',
+  background: 'rgba(255,255,255,0.04)',
+  border: '1px solid rgba(255,255,255,0.08)',
+  boxShadow: '0 4px 24px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.06)',
+};
+
+const darkInput = {
+  background: 'rgba(255,255,255,0.06)',
+  border: '1px solid rgba(255,255,255,0.10)',
+  color: '#f3f4f6',
 };
 
 const fmtTs = (ts) => {
@@ -325,12 +330,12 @@ export default function MergeTesting() {
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-violet-50">
-            <FlaskConical size={20} className="text-violet-600" />
+          <div className="p-2 rounded-xl" style={{ background: 'rgba(139,92,246,0.15)' }}>
+            <FlaskConical size={20} className="text-violet-400" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-gray-900">Merge Testing</h2>
-            <p className="text-xs text-gray-500">
+            <h2 className="text-lg font-bold text-gray-100">Merge Testing</h2>
+            <p className="text-xs text-gray-400">
               Run retroactive merge simulations on historical data
             </p>
           </div>
@@ -341,7 +346,7 @@ export default function MergeTesting() {
           {view === VIEWS.RESULTS && (
             <button
               onClick={() => setView(VIEWS.CONFIG)}
-              className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors"
+              className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-100 transition-colors"
             >
               <ArrowLeft size={14} /> Back to config
             </button>
@@ -351,7 +356,8 @@ export default function MergeTesting() {
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all
               ${view === VIEWS.HISTORY
                 ? 'bg-violet-600 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                : 'text-gray-400 hover:text-gray-100'}`}
+            style={view !== VIEWS.HISTORY ? { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' } : {}}
           >
             <History size={13} /> History
           </button>
@@ -370,48 +376,52 @@ export default function MergeTesting() {
             {/* Row 1: Symbol + Timeframe */}
             <div className="flex flex-wrap gap-4">
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Symbol</label>
+                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Symbol</label>
                 <input
                   type="text"
                   value={symbol}
                   onChange={e => setSymbol(e.target.value.toUpperCase())}
                   placeholder="XAUUSD"
-                  className="px-3 py-2 rounded-lg border border-gray-200 text-sm font-mono w-32 focus:outline-none focus:ring-2 focus:ring-violet-300"
+                  className="px-3 py-2 rounded-lg text-sm font-mono w-32 focus:outline-none focus:ring-2 focus:ring-violet-500 placeholder-gray-600"
+                  style={darkInput}
                 />
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Timeframe</label>
+                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Timeframe</label>
                 <select
                   value={timeframe}
                   onChange={e => setTimeframe(e.target.value)}
-                  className="px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+                  className="px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  style={darkInput}
                 >
                   {TIMEFRAMES.map(tf => <option key={tf} value={tf}>{tf}</option>)}
                 </select>
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Start Date &amp; Time</label>
+                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Start Date &amp; Time</label>
                 <input
                   type="datetime-local"
                   value={startDate}
                   onChange={e => setStartDate(e.target.value)}
-                  className="px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+                  className="px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  style={darkInput}
                 />
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">End Date &amp; Time</label>
+                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">End Date &amp; Time</label>
                 <input
                   type="datetime-local"
                   value={endDate}
                   onChange={e => setEndDate(e.target.value)}
-                  className="px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+                  className="px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  style={darkInput}
                 />
               </div>
             </div>
 
             {/* Threshold selector */}
             <div className="flex flex-col gap-2">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
                 New High / Low Threshold
               </label>
               <div className="flex items-center gap-3 flex-wrap">
@@ -422,7 +432,8 @@ export default function MergeTesting() {
                     className={`px-4 py-2 rounded-lg text-sm font-medium border transition-all
                       ${threshold === val
                         ? 'bg-violet-600 text-white border-violet-600'
-                        : 'bg-white text-gray-600 border-gray-200 hover:border-violet-300'}`}
+                        : 'text-gray-300 hover:text-gray-100 hover:border-violet-500'}`}
+                    style={threshold !== val ? { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)' } : {}}
                   >
                     {label}
                   </button>
@@ -432,7 +443,8 @@ export default function MergeTesting() {
                   className={`px-4 py-2 rounded-lg text-sm font-medium border transition-all
                     ${threshold === 'custom'
                       ? 'bg-violet-600 text-white border-violet-600'
-                      : 'bg-white text-gray-600 border-gray-200 hover:border-violet-300'}`}
+                      : 'text-gray-300 hover:text-gray-100 hover:border-violet-500'}`}
+                  style={threshold !== 'custom' ? { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)' } : {}}
                 >
                   Custom
                 </button>
@@ -446,9 +458,10 @@ export default function MergeTesting() {
                       value={customThreshold}
                       onChange={e => setCustomThreshold(e.target.value)}
                       placeholder="e.g. 10"
-                      className="w-24 px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+                      className="w-24 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 placeholder-gray-600"
+                      style={darkInput}
                     />
-                    <span className="text-sm text-gray-500">%</span>
+                    <span className="text-sm text-gray-400">%</span>
                   </div>
                 )}
               </div>
@@ -457,7 +470,7 @@ export default function MergeTesting() {
             {/* Rules multiselect */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
                   Merge Rules ({selectedRules.size}/{dbRules.length} selected)
                   {(() => {
                     const totalExc = dbRules.reduce((n, r) => n + (r.exceptions?.length || 0), 0);
@@ -470,7 +483,7 @@ export default function MergeTesting() {
                 {dbRules.length > 0 && (
                   <button
                     onClick={toggleAllRules}
-                    className="flex items-center gap-1 text-xs text-violet-600 hover:text-violet-800 font-medium"
+                    className="flex items-center gap-1 text-xs text-violet-400 hover:text-violet-300 font-medium"
                   >
                     {selectedRules.size === dbRules.length
                       ? <><CheckSquare size={13} /> Deselect all</>
@@ -479,12 +492,12 @@ export default function MergeTesting() {
                 )}
               </div>
               {rulesLoading ? (
-                <div className="flex items-center gap-2 text-xs text-gray-400 py-3">
+                <div className="flex items-center gap-2 text-xs text-gray-500 py-3">
                   <Loader2 size={13} className="animate-spin" /> Loading rules…
                 </div>
               ) : dbRules.length === 0 ? (
-                <div className="text-xs text-gray-400 py-3">
-                  No merge rules defined yet. Create rules in the <strong>Merge Rules</strong> tab first.
+                <div className="text-xs text-gray-500 py-3">
+                  No merge rules defined yet. Create rules in the <strong className="text-gray-300">Merge Rules</strong> tab first.
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -498,27 +511,27 @@ export default function MergeTesting() {
                         {/* ── Parent rule row ─────────────────────────────── */}
                         <button
                           onClick={() => toggleRule(rule)}
-                          className={`w-full flex items-start gap-3 p-3 rounded-xl border text-left transition-all
-                            ${ruleChecked
-                              ? 'border-violet-300 bg-violet-50'
-                              : 'border-gray-200 bg-white hover:border-gray-300'}`}
+                          className="w-full flex items-start gap-3 p-3 rounded-xl text-left transition-all"
+                          style={ruleChecked
+                            ? { background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.35)' }
+                            : { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
                         >
                           <div className={`mt-0.5 flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center
-                            ${ruleChecked ? 'bg-violet-600 border-violet-600' : 'border-gray-300'}`}>
+                            ${ruleChecked ? 'bg-violet-600 border-violet-600' : 'border-white/20'}`}>
                             {ruleChecked && <span className="text-white text-xs leading-none">✓</span>}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              <span className={`text-xs font-bold ${ruleChecked ? 'text-violet-700' : 'text-gray-500'}`}>
+                              <span className={`text-xs font-bold ${ruleChecked ? 'text-violet-400' : 'text-gray-500'}`}>
                                 #{rule.rule_order}
                               </span>
-                              <span className="text-xs font-medium text-gray-700">{rule.name}</span>
+                              <span className={`text-xs font-medium ${ruleChecked ? 'text-gray-100' : 'text-gray-400'}`}>{rule.name}</span>
                               {allExcsOff && (
-                                <span className="text-xs text-amber-600 font-medium">(no exceptions active)</span>
+                                <span className="text-xs text-amber-400 font-medium">(no exceptions active)</span>
                               )}
                             </div>
                             {rule.description && (
-                              <span className="text-xs text-gray-400">{rule.description.split('\n')[0]}</span>
+                              <span className="text-xs text-gray-500">{rule.description.split('\n')[0]}</span>
                             )}
                           </div>
                         </button>
@@ -536,17 +549,17 @@ export default function MergeTesting() {
                               return (
                                 <div
                                   key={exc.id}
-                                  className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all cursor-pointer
-                                    ${excChecked
-                                      ? 'border-violet-200 bg-violet-50/60'
-                                      : 'border-gray-200 bg-white/60 hover:border-gray-300'}`}
+                                  className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all cursor-pointer"
+                                  style={excChecked
+                                    ? { background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.25)' }
+                                    : { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
                                   onClick={() => toggleException(exc.id)}
                                 >
                                   <div className={`flex-shrink-0 w-3.5 h-3.5 rounded border flex items-center justify-center
-                                    ${excChecked ? 'bg-violet-500 border-violet-500' : 'border-gray-300'}`}>
+                                    ${excChecked ? 'bg-violet-500 border-violet-500' : 'border-white/20'}`}>
                                     {excChecked && <span className="text-white" style={{fontSize: 9, lineHeight: 1}}>✓</span>}
                                   </div>
-                                  <span className={`text-xs flex-1 ${excChecked ? 'text-violet-700' : 'text-gray-400 line-through'}`}>
+                                  <span className={`text-xs flex-1 ${excChecked ? 'text-violet-300' : 'text-gray-500 line-through'}`}>
                                     {exc.name}
                                   </span>
                                   {excChecked && closeLevels && (
@@ -554,7 +567,8 @@ export default function MergeTesting() {
                                       value={excCloseFilters[exc.id] || ''}
                                       onClick={e => e.stopPropagation()}
                                       onChange={e => { e.stopPropagation(); setExcCloseFilter(exc.id, e.target.value); }}
-                                      className="text-xs border border-gray-200 rounded-md px-1 py-0.5 bg-white text-gray-600 focus:outline-none focus:ring-1 focus:ring-violet-300 max-w-[160px]"
+                                      className="text-xs rounded-md px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-violet-500 max-w-[160px]"
+                                      style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', color: '#d1d5db' }}
                                     >
                                       <option value="">No close filter</option>
                                       {closeLevels.map(opt => (
@@ -587,11 +601,11 @@ export default function MergeTesting() {
 
             {/* Running status */}
             {running && session && (
-              <div className="flex items-center gap-2 text-xs text-violet-600">
+              <div className="flex items-center gap-2 text-xs text-violet-400">
                 <Loader2 size={12} className="animate-spin" />
                 Status: <strong>{session.status}</strong>
                 {session.table_name && (
-                  <span className="font-mono text-gray-400">→ {session.table_name}</span>
+                  <span className="font-mono text-gray-500">→ {session.table_name}</span>
                 )}
               </div>
             )}
@@ -599,7 +613,7 @@ export default function MergeTesting() {
 
           {/* Error */}
           {runError && (
-            <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
+            <div className="flex items-center gap-2 px-4 py-3 rounded-xl text-red-400 text-sm" style={{ background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.20)' }}>
               <AlertCircle size={16} />
               {runError}
             </div>
@@ -617,36 +631,36 @@ export default function MergeTesting() {
           {/* Session summary chips */}
           {session && (
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="px-3 py-1 rounded-full text-xs font-medium bg-violet-100 text-violet-700">
+              <span className="px-3 py-1 rounded-full text-xs font-medium text-violet-300" style={{ background: 'rgba(139,92,246,0.15)' }}>
                 {session.symbol} / {session.timeframe}
               </span>
               {session.start_date && (
-                <span className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                <span className="px-3 py-1 rounded-full text-xs font-medium text-gray-300" style={{ background: 'rgba(255,255,255,0.07)' }}>
                   {session.start_date?.slice(0, 10)} → {session.end_date?.slice(0, 10)}
                 </span>
               )}
               {session.total_input_bars != null && (
-                <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                <span className="px-3 py-1 rounded-full text-xs font-medium text-blue-300" style={{ background: 'rgba(59,130,246,0.15)' }}>
                   {session.total_input_bars} input bars
                 </span>
               )}
               {session.total_output_units != null && (
-                <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                <span className="px-3 py-1 rounded-full text-xs font-medium text-emerald-300" style={{ background: 'rgba(16,185,129,0.15)' }}>
                   {session.total_output_units} output units
                 </span>
               )}
               {session.merged_units_count != null && (
-                <span className="px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                <span className="px-3 py-1 rounded-full text-xs font-medium text-amber-300" style={{ background: 'rgba(245,158,11,0.15)' }}>
                   {session.merged_units_count} merged
                 </span>
               )}
               {session.standalone_units_count != null && session.standalone_units_count > 0 && (
-                <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                <span className="px-3 py-1 rounded-full text-xs font-medium text-blue-300" style={{ background: 'rgba(59,130,246,0.15)' }}>
                   {session.standalone_units_count} standalone
                 </span>
               )}
               {Array.isArray(session.rules_applied) && (
-                <span className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
+                <span className="px-3 py-1 rounded-full text-xs font-medium text-gray-400" style={{ background: 'rgba(255,255,255,0.06)' }}>
                   Rules: {session.rules_applied.join(', ')}
                 </span>
               )}
@@ -656,24 +670,24 @@ export default function MergeTesting() {
           {/* Results table */}
           <div className="rounded-2xl overflow-hidden" style={glassStyle}>
             {rows.length === 0 && !loadingMore ? (
-              <div className="p-8 text-center text-gray-400 text-sm">No rows to display.</div>
+              <div className="p-8 text-center text-gray-500 text-sm">No rows to display.</div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-gray-200 bg-gray-50/80">
-                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">Bar Start (MT5)</th>
-                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">Bar End (MT5)</th>
-                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500">Bars</th>
-                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500">Open</th>
-                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500">High</th>
-                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500">Low</th>
-                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500">Close</th>
-                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500">Pat</th>
-                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500">JGD</th>
-                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500">JWD</th>
-                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">Cond #</th>
-                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">Trigger</th>
+                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)' }}>
+                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-400 whitespace-nowrap">Bar Start (MT5)</th>
+                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-400 whitespace-nowrap">Bar End (MT5)</th>
+                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-400">Bars</th>
+                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-400">Open</th>
+                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-400">High</th>
+                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-400">Low</th>
+                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-400">Close</th>
+                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-400">Pat</th>
+                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-400">JGD</th>
+                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-400">JWD</th>
+                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-400 whitespace-nowrap">Cond #</th>
+                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-400 whitespace-nowrap">Trigger</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -681,7 +695,7 @@ export default function MergeTesting() {
                       const isMerged  = row.is_merged;
                       const hasAction = row.action_condition_no != null;
                       const rowBg = isMerged
-                        ? 'rgba(251,191,36,0.10)'
+                        ? 'rgba(251,191,36,0.08)'
                         : hasAction
                           ? 'rgba(59,130,246,0.07)'
                           : 'transparent';
@@ -690,57 +704,57 @@ export default function MergeTesting() {
                       return (
                         <React.Fragment key={row.id ?? idx}>
                         <tr
-                          className="border-b border-gray-100 hover:brightness-95 transition-all cursor-pointer"
-                          style={{ background: rowBg }}
+                          className="transition-all cursor-pointer hover:brightness-110"
+                          style={{ background: rowBg, borderBottom: '1px solid rgba(255,255,255,0.05)' }}
                           onClick={() => setExpandedRow(isExpanded ? null : (row.id ?? idx))}
                         >
-                          <td className="px-3 py-2 font-mono text-xs text-gray-600 whitespace-nowrap">
+                          <td className="px-3 py-2 font-mono text-xs text-gray-300 whitespace-nowrap">
                             {fmtTs(row.bar_start_uk)}
                           </td>
-                          <td className="px-3 py-2 font-mono text-xs text-gray-600 whitespace-nowrap">
-                            {isMerged ? fmtTs(row.bar_end_uk) : <span className="text-gray-300">—</span>}
+                          <td className="px-3 py-2 font-mono text-xs text-gray-300 whitespace-nowrap">
+                            {isMerged ? fmtTs(row.bar_end_uk) : <span className="text-gray-600">—</span>}
                           </td>
                           <td className="px-3 py-2 text-center">
                             {isMerged ? (
-                              <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-amber-100 text-amber-700">
+                              <span className="px-1.5 py-0.5 rounded text-xs font-bold text-amber-300" style={{ background: 'rgba(245,158,11,0.18)' }}>
                                 {row.bars_count}
                               </span>
                             ) : (
-                              <span className="text-gray-400 text-xs">1</span>
+                              <span className="text-gray-500 text-xs">1</span>
                             )}
                           </td>
-                          <td className="px-3 py-2 font-mono text-xs text-gray-700">{fmtNum(row.open)}</td>
-                          <td className="px-3 py-2 font-mono text-xs text-green-700">{fmtNum(row.high)}</td>
-                          <td className="px-3 py-2 font-mono text-xs text-red-700">{fmtNum(row.low)}</td>
-                          <td className="px-3 py-2 font-mono text-xs text-gray-700">{fmtNum(row.close)}</td>
+                          <td className="px-3 py-2 font-mono text-xs text-gray-200">{fmtNum(row.open)}</td>
+                          <td className="px-3 py-2 font-mono text-xs text-emerald-400">{fmtNum(row.high)}</td>
+                          <td className="px-3 py-2 font-mono text-xs text-red-400">{fmtNum(row.low)}</td>
+                          <td className="px-3 py-2 font-mono text-xs text-gray-200">{fmtNum(row.close)}</td>
                           <td className="px-3 py-2">
-                            <span className="px-1.5 py-0.5 rounded text-xs font-mono bg-gray-100 text-gray-600">
+                            <span className="px-1.5 py-0.5 rounded text-xs font-mono text-gray-300" style={{ background: 'rgba(255,255,255,0.08)' }}>
                               {row.d_pat ?? '—'}
                             </span>
                           </td>
-                          <td className="px-3 py-2 font-mono text-xs text-gray-600">{fmtNum(row.jgd)}</td>
-                          <td className="px-3 py-2 font-mono text-xs text-gray-600">{fmtNum(row.jwd)}</td>
+                          <td className="px-3 py-2 font-mono text-xs text-gray-300">{fmtNum(row.jgd)}</td>
+                          <td className="px-3 py-2 font-mono text-xs text-gray-300">{fmtNum(row.jwd)}</td>
                           <td className="px-3 py-2 text-center">
                             {hasAction ? (
-                              <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-blue-100 text-blue-700">
+                              <span className="px-1.5 py-0.5 rounded text-xs font-bold text-blue-300" style={{ background: 'rgba(59,130,246,0.18)' }}>
                                 C{row.action_condition_no}
                               </span>
-                            ) : <span className="text-gray-300 text-xs">—</span>}
+                            ) : <span className="text-gray-600 text-xs">—</span>}
                           </td>
                           <td className="px-3 py-2 whitespace-nowrap">
                             {row.trigger_level_name ? (
                               <span className={`text-xs font-mono ${
-                                row.trigger_direction === 'ABOVE' ? 'text-green-700' : 'text-red-700'
+                                row.trigger_direction === 'ABOVE' ? 'text-emerald-400' : 'text-red-400'
                               }`}>
                                 {row.trigger_level_name} {row.trigger_direction === 'ABOVE' ? '↑' : '↓'}
                               </span>
-                            ) : <span className="text-gray-300 text-xs">—</span>}
+                            ) : <span className="text-gray-600 text-xs">—</span>}
                           </td>
                         </tr>
                         {isExpanded && Array.isArray(row.bar_details) && row.bar_details.length > 0 && (
-                          <tr style={{ background: 'rgba(238,242,255,0.95)' }}>
-                            <td colSpan={12} className="px-4 py-3 bg-indigo-50/60">
-                              <div className="text-xs font-semibold text-indigo-700 mb-2">
+                          <tr style={{ background: 'rgba(99,102,241,0.08)' }}>
+                            <td colSpan={12} className="px-4 py-3" style={{ borderBottom: '1px solid rgba(99,102,241,0.15)' }}>
+                              <div className="text-xs font-semibold text-indigo-300 mb-2">
                                 Bar-by-bar eval ({row.bar_details.length} bar{row.bar_details.length > 1 ? 's' : ''})
                               </div>
                               {(() => {
@@ -749,11 +763,10 @@ export default function MergeTesting() {
                                 const showMdtp = planPat === '2+2';
                                 const n   = (v) => v != null ? Number(v).toFixed(2) : '—';
                                 const chk = (v) => v == null
-                                  ? <span className="text-gray-300">—</span>
+                                  ? <span className="text-gray-600">—</span>
                                   : v
-                                    ? <span className="text-green-600 font-bold">✓</span>
+                                    ? <span className="text-emerald-400 font-bold">✓</span>
                                     : <span className="text-red-400">✗</span>;
-                                // Precompute running accumulated OHLC per bar
                                 let runH = -Infinity, runL = Infinity;
                                 const accOHLC = row.bar_details.map((bd, i) => {
                                   runH = Math.max(runH, bd.high ?? -Infinity);
@@ -769,7 +782,7 @@ export default function MergeTesting() {
                                 <div className="overflow-x-auto">
                                 <table className="w-full text-xs border-collapse">
                                   <thead>
-                                    <tr className="text-left text-gray-500 border-b border-indigo-100">
+                                    <tr className="text-left text-gray-500" style={{ borderBottom: '1px solid rgba(99,102,241,0.20)' }}>
                                       <th className="pr-3 py-1 font-semibold whitespace-nowrap">Time</th>
                                       <th className="pr-3 py-1 font-semibold">Plan</th>
                                       <th className="pr-3 py-1 font-semibold">Sit</th>
@@ -777,10 +790,10 @@ export default function MergeTesting() {
                                       {showMutp && <th className="pr-3 py-1 font-semibold">MUTP</th>}
                                       <th className="pr-3 py-1 font-semibold">DTP</th>
                                       {showMdtp && <th className="pr-3 py-1 font-semibold">MDTP</th>}
-                                      <th className="pr-3 py-1 font-semibold text-gray-400">O</th>
-                                      <th className="pr-3 py-1 font-semibold text-green-600">H</th>
+                                      <th className="pr-3 py-1 font-semibold text-gray-500">O</th>
+                                      <th className="pr-3 py-1 font-semibold text-emerald-500">H</th>
                                       <th className="pr-3 py-1 font-semibold text-red-500">L</th>
-                                      <th className="pr-3 py-1 font-semibold text-gray-500">C</th>
+                                      <th className="pr-3 py-1 font-semibold text-gray-400">C</th>
                                       <th className="pr-3 py-1 font-semibold whitespace-nowrap">NH/NL Target</th>
                                       <th className="pr-3 py-1 font-semibold">NH ✓</th>
                                       <th className="pr-3 py-1 font-semibold whitespace-nowrap">Station</th>
@@ -796,24 +809,24 @@ export default function MergeTesting() {
                                       const fired = bd.fired;
                                       const acc   = accOHLC[bi];
                                       return (
-                                        <tr key={bi} className={`border-b border-indigo-50 ${fired ? 'bg-blue-50' : ''}`}>
-                                          <td className="pr-3 py-1 font-mono whitespace-nowrap text-gray-500">{bd.ts ? String(bd.ts).slice(0, 16).replace('T', ' ') : '—'}</td>
-                                          <td className="pr-3 py-1 font-mono font-bold text-violet-700">{bd.prev_d_pat ?? '—'}</td>
-                                          <td className="pr-3 py-1 font-mono text-gray-600">{bd.d_pat ?? '—'}</td>
-                                          <td className="pr-3 py-1 font-mono text-blue-600">{n(bd.utp)}</td>
-                                          {showMutp && <td className="pr-3 py-1 font-mono text-blue-400">{n(bd.mutp)}</td>}
-                                          <td className="pr-3 py-1 font-mono text-red-600">{n(bd.dtp)}</td>
-                                          {showMdtp && <td className="pr-3 py-1 font-mono text-red-400">{n(bd.mdtp)}</td>}
-                                          <td className="pr-3 py-1 font-mono text-gray-400">{n(acc?.open)}</td>
-                                          <td className="pr-3 py-1 font-mono text-green-700 font-medium">{n(acc?.high)}</td>
-                                          <td className="pr-3 py-1 font-mono text-red-500 font-medium">{n(acc?.low)}</td>
-                                          <td className="pr-3 py-1 font-mono text-gray-600">{n(acc?.close)}</td>
-                                          <td className="pr-3 py-1 font-mono text-gray-500">{n(bd.new_high_target ?? bd.new_low_target)}</td>
+                                        <tr key={bi} style={{ borderBottom: '1px solid rgba(99,102,241,0.10)', background: fired ? 'rgba(59,130,246,0.10)' : 'transparent' }}>
+                                          <td className="pr-3 py-1 font-mono whitespace-nowrap text-gray-400">{bd.ts ? String(bd.ts).slice(0, 16).replace('T', ' ') : '—'}</td>
+                                          <td className="pr-3 py-1 font-mono font-bold text-violet-400">{bd.prev_d_pat ?? '—'}</td>
+                                          <td className="pr-3 py-1 font-mono text-gray-300">{bd.d_pat ?? '—'}</td>
+                                          <td className="pr-3 py-1 font-mono text-blue-400">{n(bd.utp)}</td>
+                                          {showMutp && <td className="pr-3 py-1 font-mono text-blue-300">{n(bd.mutp)}</td>}
+                                          <td className="pr-3 py-1 font-mono text-red-400">{n(bd.dtp)}</td>
+                                          {showMdtp && <td className="pr-3 py-1 font-mono text-red-300">{n(bd.mdtp)}</td>}
+                                          <td className="pr-3 py-1 font-mono text-gray-500">{n(acc?.open)}</td>
+                                          <td className="pr-3 py-1 font-mono text-emerald-400 font-medium">{n(acc?.high)}</td>
+                                          <td className="pr-3 py-1 font-mono text-red-400 font-medium">{n(acc?.low)}</td>
+                                          <td className="pr-3 py-1 font-mono text-gray-300">{n(acc?.close)}</td>
+                                          <td className="pr-3 py-1 font-mono text-gray-400">{n(bd.new_high_target ?? bd.new_low_target)}</td>
                                           <td className="pr-3 py-1 text-center">{chk(nhOk)}</td>
-                                          <td className="pr-3 py-1 font-mono text-indigo-600">{bd.utp_trigger || bd.dtp_trigger || '—'}</td>
-                                          <td className="pr-3 py-1 font-mono text-gray-500">{n(bd.tvhs ?? bd.tvls)}</td>
+                                          <td className="pr-3 py-1 font-mono text-indigo-400">{bd.utp_trigger || bd.dtp_trigger || '—'}</td>
+                                          <td className="pr-3 py-1 font-mono text-gray-400">{n(bd.tvhs ?? bd.tvls)}</td>
                                           <td className="pr-3 py-1 text-center">{chk(tvOk)}</td>
-                                          <td className="pr-3 py-1 text-center">{fired ? <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-bold">C{bd.rule_no}</span> : <span className="text-gray-300">—</span>}</td>
+                                          <td className="pr-3 py-1 text-center">{fired ? <span className="px-1.5 py-0.5 rounded text-blue-300 font-bold" style={{ background: 'rgba(59,130,246,0.18)' }}>C{bd.rule_no}</span> : <span className="text-gray-600">—</span>}</td>
                                         </tr>
                                       );
                                     })}
@@ -835,7 +848,7 @@ export default function MergeTesting() {
 
             {/* Load more */}
             {hasMore && (
-              <div className="p-3 flex justify-center border-t border-gray-100">
+              <div className="p-3 flex justify-center" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                 <button
                   onClick={handleLoadMore}
                   disabled={loadingMore}
@@ -859,11 +872,12 @@ export default function MergeTesting() {
           className="space-y-3"
         >
           <div className="flex items-center justify-between">
-            <p className="text-sm text-gray-500">Past merge analysis sessions</p>
+            <p className="text-sm text-gray-400">Past merge analysis sessions</p>
             <button
               onClick={loadHistory}
               disabled={loadingHistory}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-all"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-400 hover:text-gray-100 rounded-lg transition-all"
+              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}
             >
               <RefreshCw size={12} className={loadingHistory ? 'animate-spin' : ''} />
               Refresh
@@ -871,9 +885,9 @@ export default function MergeTesting() {
           </div>
 
           {loadingHistory ? (
-            <div className="p-8 text-center text-gray-400 text-sm">Loading history…</div>
+            <div className="p-8 text-center text-gray-500 text-sm">Loading history…</div>
           ) : sessions.length === 0 ? (
-            <div className="p-8 text-center text-gray-400 text-sm rounded-2xl" style={glassStyle}>
+            <div className="p-8 text-center text-gray-500 text-sm rounded-2xl" style={glassStyle}>
               No past sessions found.
             </div>
           ) : (
@@ -881,40 +895,46 @@ export default function MergeTesting() {
               {sessions.map(s => (
                 <div
                   key={s.session_id}
-                  className="rounded-2xl p-4 flex items-start justify-between gap-4 hover:shadow-md transition-all cursor-pointer"
+                  className="rounded-2xl p-4 flex items-start justify-between gap-4 transition-all cursor-pointer hover:brightness-110"
                   style={glassStyle}
                   onClick={() => handleLoadHistorySession(s)}
                 >
                   <div className="space-y-1.5 flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-mono text-sm font-bold text-gray-800">
+                      <span className="font-mono text-sm font-bold text-gray-100">
                         {s.symbol} / {s.timeframe}
                       </span>
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium
-                        ${s.status === 'complete' ? 'bg-green-100 text-green-700'
-                          : s.status === 'error'  ? 'bg-red-100 text-red-700'
-                          : s.status === 'running' ? 'bg-blue-100 text-blue-700'
-                          : 'bg-gray-100 text-gray-500'}`}>
+                        ${s.status === 'complete' ? 'text-emerald-300'
+                          : s.status === 'error'  ? 'text-red-400'
+                          : s.status === 'running' ? 'text-blue-300'
+                          : 'text-gray-400'}`}
+                        style={{
+                          background: s.status === 'complete' ? 'rgba(16,185,129,0.15)'
+                            : s.status === 'error' ? 'rgba(239,68,68,0.15)'
+                            : s.status === 'running' ? 'rgba(59,130,246,0.15)'
+                            : 'rgba(255,255,255,0.06)'
+                        }}>
                         {s.status}
                       </span>
                     </div>
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-gray-400">
                       {s.start_date?.slice(0, 10)} → {s.end_date?.slice(0, 10)}
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
                       {Array.isArray(s.rules_applied) && (
-                        <span className="text-xs text-gray-400">
+                        <span className="text-xs text-gray-500">
                           Rules: {s.rules_applied.join(', ')}
                         </span>
                       )}
                       {s.total_input_bars != null && (
-                        <span className="text-xs text-gray-400">
+                        <span className="text-xs text-gray-500">
                           {s.total_input_bars} bars → {s.total_output_units} units
                           {s.merged_units_count != null && ` (${s.merged_units_count} merged, ${s.standalone_units_count ?? 0} standalone)`}
                         </span>
                       )}
                     </div>
-                    <div className="text-xs text-gray-300 font-mono truncate">
+                    <div className="text-xs text-gray-600 font-mono truncate">
                       {s.table_name}
                     </div>
                   </div>
@@ -928,7 +948,8 @@ export default function MergeTesting() {
                     </button>
                     <button
                       onClick={(e) => handleDeleteSession(s.session_id, e)}
-                      className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                      className="p-1.5 text-gray-500 hover:text-red-400 rounded-lg transition-all"
+                      style={{ background: 'rgba(255,255,255,0.04)' }}
                       title="Delete session"
                     >
                       <Trash2 size={14} />

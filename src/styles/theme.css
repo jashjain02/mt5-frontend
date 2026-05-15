@@ -4,139 +4,190 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Base styles */
-* {
+/* ─── Reset ──────────────────────────────────────────── */
+*, *::before, *::after {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-html {
+html, body, #root {
   height: 100%;
   width: 100%;
+  min-height: 100vh;
 }
 
+/* ─── Dark base ───────────────────────────────────────── */
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  color: #171717;
-  background-color: #ffffff;
+  color: #f9fafb;
+  background-color: #0a0f1a;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  min-height: 100vh;
 }
 
-#root {
-  height: 100%;
-  width: 100%;
-  min-height: 100vh;
-}
+/* ─── Dark scrollbar ──────────────────────────────────── */
+::-webkit-scrollbar        { width: 6px; height: 6px; }
+::-webkit-scrollbar-track  { background: #0a0f1a; }
+::-webkit-scrollbar-thumb  { background: rgba(255,255,255,0.12); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(16,185,129,0.40); }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: #f5f5f5;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #d4d4d4;
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #a3a3a3;
-}
-
-/* Input autofill styles */
+/* ─── Autofill override (dark) ────────────────────────── */
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus {
-  -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
-  -webkit-text-fill-color: #171717 !important;
-  border-color: #d4d4d4 !important;
+  -webkit-box-shadow: 0 0 0 1000px #0d1421 inset !important;
+  -webkit-text-fill-color: #f9fafb !important;
+  border-color: rgba(255,255,255,0.08) !important;
   transition: background-color 5000s ease-in-out 0s;
 }
 
+/* ─── Date / Datetime-local input dark styling ────────── */
+input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) opacity(0.5);
+  cursor: pointer;
+}
+input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover,
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  filter: invert(1) opacity(0.8);
+}
+
+/* ─── Component layer ─────────────────────────────────── */
 @layer components {
-  /* Card component */
+  /* Dark glass card */
+  .card-dark {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.30),
+                inset 0 1px 0 rgba(255,255,255,0.06);
+    @apply rounded-2xl;
+  }
+
+  /* Accent button (emerald CTA) */
+  .btn-accent {
+    @apply relative font-semibold py-2.5 px-5 rounded-xl transition-all duration-200 text-sm inline-flex items-center justify-center;
+    background-color: #10b981;
+    color: #0a0f1a;
+    box-shadow: 0 0 10px rgba(16,185,129,0.20);
+  }
+  .btn-accent:hover:not(:disabled) {
+    background-color: #059669;
+    box-shadow: 0 0 20px rgba(16,185,129,0.35);
+    transform: translateY(-1px);
+  }
+  .btn-accent:disabled { @apply opacity-40 cursor-not-allowed; }
+  .btn-accent:active:not(:disabled) { transform: translateY(0); }
+
+  /* Ghost button (dark) */
+  .btn-ghost-dark {
+    @apply relative font-medium py-2.5 px-5 rounded-xl transition-all duration-200 text-sm;
+    color: #6b7280;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+  }
+  .btn-ghost-dark:hover:not(:disabled) {
+    color: #f9fafb;
+    border-color: #10b981;
+    background: rgba(16,185,129,0.08);
+  }
+
+  /* Dark input */
+  .input-dark {
+    @apply w-full px-4 py-2.5 rounded-xl text-sm transition-all duration-200;
+    color: #f9fafb;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .input-dark::placeholder { color: #6b7280; }
+  .input-dark:focus {
+    @apply outline-none;
+    border-color: #10b981;
+    box-shadow: 0 0 0 3px rgba(16,185,129,0.12);
+  }
+
+  /* MT5 status badges */
+  .badge-connected {
+    @apply flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium;
+    background: rgba(16,185,129,0.12);
+    color: #10b981;
+    border: 1px solid rgba(16,185,129,0.20);
+  }
+  .badge-disconnected {
+    @apply flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium;
+    background: rgba(239,68,68,0.12);
+    color: #ef4444;
+    border: 1px solid rgba(239,68,68,0.20);
+  }
+  .badge-checking {
+    @apply flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium;
+    background: rgba(255,255,255,0.06);
+    color: #6b7280;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+
+  /* Auth page light card (keep for login/signup pages) */
   .card {
     @apply bg-white rounded-2xl border border-gray-200;
     box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
   }
 
-  /* Primary button */
+  /* Primary button (keep for auth pages) */
   .btn-primary {
     @apply relative font-semibold py-3 px-6 rounded-xl text-white transition-all duration-200;
     background-color: #3b82f6;
   }
-
   .btn-primary:hover:not(:disabled) {
     background-color: #2563eb;
     box-shadow: 0 4px 6px -1px rgb(59 130 246 / 0.25);
     transform: translateY(-1px);
   }
+  .btn-primary:disabled { @apply opacity-50 cursor-not-allowed; }
+  .btn-primary:active:not(:disabled) { transform: translateY(0); }
 
-  .btn-primary:disabled {
-    @apply opacity-50 cursor-not-allowed;
-  }
-
-  .btn-primary:active:not(:disabled) {
-    transform: translateY(0);
-  }
-
-  /* Secondary button */
+  /* Secondary button (keep for auth pages) */
   .btn-secondary {
     @apply relative font-medium py-3 px-6 rounded-xl transition-all duration-200;
     @apply bg-white text-gray-700 border border-gray-300;
   }
+  .btn-secondary:hover:not(:disabled) { @apply bg-gray-50 border-gray-400; }
+  .btn-secondary:disabled { @apply opacity-50 cursor-not-allowed; }
 
-  .btn-secondary:hover:not(:disabled) {
-    @apply bg-gray-50 border-gray-400;
-  }
-
-  .btn-secondary:disabled {
-    @apply opacity-50 cursor-not-allowed;
-  }
-
-  /* Input styles */
+  /* Input styles (keep for auth pages) */
   .input {
     @apply w-full px-4 py-3 rounded-xl border border-gray-300 bg-white text-gray-900;
     @apply placeholder-gray-400 transition-all duration-200;
   }
-
   .input:focus {
     @apply outline-none;
     border-color: #3b82f6;
     box-shadow: 0 0 0 3px rgb(59 130 246 / 0.1);
   }
-
-  .input:disabled {
-    @apply bg-gray-100 cursor-not-allowed;
-  }
+  .input:disabled { @apply bg-gray-100 cursor-not-allowed; }
 }
 
-/* Focus visible outline for accessibility */
+/* ─── Focus ring ──────────────────────────────────────── */
 :focus-visible {
-  outline: 2px solid #3b82f6;
+  outline: 2px solid #10b981;
   outline-offset: 2px;
 }
 
-/* Remove spinner from number inputs */
+/* ─── Native select option dark styling ──────────────── */
+select option {
+  background-color: #0d1421;
+  color: #f9fafb;
+}
+
+/* ─── Number input ────────────────────────────────────── */
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
+input[type="number"] { -moz-appearance: textfield; }
 
-input[type="number"] {
-  -moz-appearance: textfield;
-}
-
-/* Selection color */
+/* ─── Selection color ─────────────────────────────────── */
 ::selection {
-  background: rgb(59 130 246 / 0.2);
-  color: #171717;
+  background: rgba(16,185,129,0.25);
+  color: #f9fafb;
 }

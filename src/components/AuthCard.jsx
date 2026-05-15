@@ -9,7 +9,7 @@ const AuthCard = ({ children, className = '' }) => {
         transition={{ duration: 0.4, ease: 'easeOut' }}
         className={`w-full max-w-md ${className}`}
       >
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-lg p-6 sm:p-8">
+        <div className="card-dark p-6 sm:p-8">
           {children}
         </div>
       </motion.div>

@@ -80,9 +80,14 @@ const Login = ({ onNavigate, onLoginSuccess }) => {
     try {
       const response = await api.login(formData.email, formData.password);
 
-      if (response.success && response.requires_otp) {
-        // OTP required - navigate to OTP verification
-        onLoginSuccess?.(formData.email);
+      if (response.access_token) {
+        api.setToken(response.access_token);
+        if (response.user) api.setUser(response.user);
+        onLoginSuccess?.(formData.email, response.dev_otp || null);
+      } else if (response.requires_otp || response.success) {
+        onLoginSuccess?.(formData.email, response.dev_otp || null);
+      } else {
+        setApiError('Unexpected response from server. Please try again.');
       }
     } catch (error) {
       setApiError(error.message || 'Login failed. Please try again.');
@@ -99,10 +104,7 @@ const Login = ({ onNavigate, onLoginSuccess }) => {
         transition={{ delay: 0.2 }}
       >
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-primary-50 rounded-2xl mb-4">
-            <span className="text-3xl">F</span>
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-1">Welcome Back</h1>
+          <h1 className="text-2xl font-bold text-gray-100 mb-1">Welcome Back</h1>
           <p className="text-gray-500 text-sm">Sign in to continue to your account</p>
         </div>
 
@@ -144,23 +146,28 @@ const Login = ({ onNavigate, onLoginSuccess }) => {
             <button
               type="button"
               onClick={() => onNavigate?.('forgot-password')}
-              className="text-sm text-primary-600 hover:text-primary-700 transition-colors"
+              className="text-sm text-emerald-400 hover:text-emerald-300 transition-colors"
             >
               Forgot Password?
             </button>
           </div>
 
-          <GradientButton type="submit" disabled={!isFormValid} loading={isLoading}>
+          <GradientButton
+            type="submit"
+            disabled={!isFormValid}
+            loading={isLoading}
+            loadingText="Signing in..."
+          >
             Continue
           </GradientButton>
         </form>
 
         <div className="relative my-6">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-200"></div>
+            <div className="w-full border-t" style={{ borderColor: 'rgba(255,255,255,0.08)' }}></div>
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="px-4 bg-white text-gray-400">or</span>
+            <span className="px-4 text-gray-500" style={{ background: 'transparent' }}>or</span>
           </div>
         </div>
 
@@ -170,7 +177,7 @@ const Login = ({ onNavigate, onLoginSuccess }) => {
             <button
               type="button"
               onClick={() => onNavigate?.('signup')}
-              className="text-primary-600 hover:text-primary-700 font-medium transition-colors"
+              className="text-emerald-400 hover:text-emerald-300 font-medium transition-colors"
             >
               Create Account
             </button>

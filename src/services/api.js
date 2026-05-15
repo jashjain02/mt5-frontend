@@ -3,6 +3,10 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 class ApiService {
   constructor() {
     this.baseUrl = API_BASE_URL;
+    // Set this from App.jsx to receive a callback when any authenticated
+    // request gets a 401 (expired/revoked token). The callback should clear
+    // auth state and redirect to login.
+    this.onAuthFailure = null;
   }
 
   getToken() {
@@ -45,6 +49,20 @@ class ApiService {
           status: response.status,
           message: `Server error (${response.status}): Invalid response format`,
           data: null,
+        };
+      }
+
+      // Global 401 interceptor — fires on token expiry or revocation.
+      // skipAuth endpoints (login, register, otp) are excluded so they
+      // can return their own auth-related error messages cleanly.
+      if (response.status === 401 && !options.skipAuth) {
+        if (typeof this.onAuthFailure === 'function') {
+          this.onAuthFailure();
+        }
+        throw {
+          status: 401,
+          message: data.detail || 'Session expired. Please log in again.',
+          data,
         };
       }
 
@@ -99,10 +117,7 @@ class ApiService {
   async login(email, password) {
     return this.request('/login', {
       method: 'POST',
-      body: JSON.stringify({
-        email_id: email,
-        password: password,
-      }),
+      body: JSON.stringify({ email_id: email, password: password }),
       skipAuth: true,
     });
   }
@@ -170,8 +185,8 @@ class ApiService {
     }
   }
 
-  async getCurrentUser() {
-    return this.request('/me');
+  async getCurrentUser(options = {}) {
+    return this.request('/me', options);
   }
 
   // Store user data in localStorage
@@ -446,6 +461,67 @@ class ApiService {
 
   async getMergeRuleVariables() {
     return this.request('/merge-rules/variables', { method: 'GET' });
+  }
+
+  async runBacktest(params) {
+    return this.request('/backtest/run', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  async startExecutor(params) {
+    return this.request('/execute/start', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  async stopExecutor(executorId) {
+    return this.request(`/execute/stop/${executorId}`, { method: 'POST' });
+  }
+
+  async listExecutors(limit = 50) {
+    return this.request(`/execute/list?limit=${limit}`, { method: 'GET' });
+  }
+
+  async getExecutorTrades(executorId, limit = 200) {
+    return this.request(`/execute/trades/${executorId}?limit=${limit}`, { method: 'GET' });
+  }
+
+  async getTradeJournal(filters = {}) {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') params.append(k, v); });
+    return this.request(`/execute/journal?${params.toString()}`, { method: 'GET' });
+  }
+
+  async getMT5History(accountId, fromDate, toDate) {
+    const params = new URLSearchParams({ account_id: accountId, from_date: fromDate, to_date: toDate });
+    return this.request(`/execute/mt5-history?${params.toString()}`, { method: 'GET' });
+  }
+
+  async getMT5Accounts() {
+    return this.request('/mt5-accounts', { method: 'GET' });
+  }
+
+  async refreshMT5Account(accountId) {
+    return this.request(`/mt5-accounts/${accountId}/refresh`, { method: 'POST' });
+  }
+
+  async placeManualTrade(params) {
+    return this.request('/execute/manual-trade', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  async closeManualTrade(ticket, accountId, symbol, lotSize, direction) {
+    const params = new URLSearchParams({ account_id: accountId, symbol, lot_size: lotSize, direction });
+    return this.request(`/execute/manual-close/${ticket}?${params}`, { method: 'POST' });
+  }
+
+  async getOpenPositions(accountId) {
+    return this.request(`/execute/positions?account_id=${accountId}`, { method: 'GET' });
   }
 }
 

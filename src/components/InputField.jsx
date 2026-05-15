@@ -25,21 +25,21 @@ const InputField = ({
   };
 
   const getBorderClass = () => {
-    if (error) return 'border-red-300 focus:border-red-500';
-    if (success) return 'border-green-300 focus:border-green-500';
-    return 'border-gray-300 focus:border-primary-500';
+    if (error) return 'border-red-500/50 focus:border-red-500';
+    if (success) return 'border-emerald-500/50 focus:border-emerald-500';
+    return 'border-white/8 focus:border-emerald-500';
   };
 
   const getFocusShadow = () => {
-    if (error) return 'focus:shadow-[0_0_0_3px_rgba(239,68,68,0.1)]';
-    if (success) return 'focus:shadow-[0_0_0_3px_rgba(34,197,94,0.1)]';
-    return 'focus:shadow-[0_0_0_3px_rgba(59,130,246,0.1)]';
+    if (error) return 'focus:shadow-[0_0_0_3px_rgba(239,68,68,0.12)]';
+    if (success) return 'focus:shadow-[0_0_0_3px_rgba(16,185,129,0.12)]';
+    return 'focus:shadow-[0_0_0_3px_rgba(16,185,129,0.12)]';
   };
 
   return (
     <div className="space-y-1.5">
       {label && (
-        <label className="block text-sm font-medium text-gray-700">
+        <label className="block text-sm font-medium text-gray-300">
           {label}
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
@@ -48,7 +48,7 @@ const InputField = ({
       <div className="relative">
         {Icon && (
           <div className={`absolute left-3 top-1/2 -translate-y-1/2 transition-colors duration-200 ${
-            error ? 'text-red-400' : success ? 'text-green-500' : isFocused ? 'text-primary-500' : 'text-gray-400'
+            error ? 'text-red-400' : success ? 'text-emerald-400' : isFocused ? 'text-emerald-400' : 'text-gray-500'
           }`}>
             <Icon size={18} />
           </div>
@@ -65,15 +65,16 @@ const InputField = ({
           onFocus={() => setIsFocused(true)}
           onBlur={handleBlur}
           className={`
-            w-full bg-white border rounded-xl px-4 py-3
-            text-sm text-gray-900 placeholder-gray-400
+            w-full border rounded-xl px-4 py-3
+            text-sm text-gray-100 placeholder-gray-500
             transition-all duration-200
             focus:outline-none
             ${Icon ? 'pl-10' : ''}
             ${getBorderClass()}
             ${getFocusShadow()}
-            ${disabled ? 'bg-gray-50 opacity-60 cursor-not-allowed' : ''}
+            ${disabled ? 'opacity-40 cursor-not-allowed' : ''}
           `}
+          style={{ background: 'rgba(255,255,255,0.05)' }}
         />
 
         <AnimatePresence>

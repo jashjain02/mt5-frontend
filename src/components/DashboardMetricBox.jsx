@@ -1,14 +1,14 @@
 import { motion } from 'framer-motion';
 
 const colorVariants = {
-  blue: 'bg-blue-50 border-blue-200 text-blue-900',
-  green: 'bg-green-50 border-green-200 text-green-900',
-  purple: 'bg-purple-50 border-purple-200 text-purple-900',
-  indigo: 'bg-indigo-50 border-indigo-200 text-indigo-900',
-  yellow: 'bg-yellow-50 border-yellow-200 text-yellow-900',
-  orange: 'bg-orange-50 border-orange-200 text-orange-900',
-  red: 'bg-red-50 border-red-200 text-red-900',
-  gray: 'bg-gray-50 border-gray-200 text-gray-900',
+  blue:   'bg-accent/10 border-accent/20 text-text-base',
+  green:  'bg-accent/10 border-accent/20 text-text-base',
+  purple: 'bg-purple-500/10 border-purple-500/20 text-text-base',
+  indigo: 'bg-indigo-500/10 border-indigo-500/20 text-text-base',
+  yellow: 'bg-warning/10 border-warning/20 text-text-base',
+  orange: 'bg-orange-500/10 border-orange-500/20 text-text-base',
+  red:    'bg-negative/10 border-negative/20 text-text-base',
+  gray:   'bg-white/[0.05] border-white/[0.08] text-text-base',
 };
 
 const DashboardMetricBox = ({ label, value, subtext, icon, color = 'blue' }) => {
@@ -17,14 +17,14 @@ const DashboardMetricBox = ({ label, value, subtext, icon, color = 'blue' }) => 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      className={`${colorVariants[color]} border-2 rounded-xl p-6 transition-all hover:shadow-lg`}
+      className={`${colorVariants[color]} border rounded-xl p-5 transition-all hover:shadow-card`}
     >
       <div className="flex items-center justify-between mb-2">
-        <p className="text-sm font-medium text-gray-600">{label}</p>
-        {icon && <span className="text-2xl">{icon}</span>}
+        <p className="text-xs font-medium text-text-muted uppercase tracking-wider">{label}</p>
+        {icon && <span className="text-xl">{icon}</span>}
       </div>
-      <p className="text-2xl font-bold">{value}</p>
-      {subtext && <p className="text-sm text-gray-500 mt-1">{subtext}</p>}
+      <p className="text-xl font-bold text-text-base">{value}</p>
+      {subtext && <p className="text-xs text-text-muted mt-1">{subtext}</p>}
     </motion.div>
   );
 };
