@@ -862,10 +862,40 @@ const TradingPlanDiagram = ({ data }) => {
               <tr>
                 <th
                   colSpan={totalCols}
-                  className="text-center text-sm font-bold text-gray-950 p-2"
+                  className="text-sm font-bold text-gray-950 p-2"
                   style={{ background: 'linear-gradient(to right, #fbbf24, #f59e0b)' }}
                 >
-                  {data.formingBarTimestamp ? `${data.formingBarTimestamp.slice(11, 16)}` : ''} {data.timeframe} TRADING PLAN
+                  <div className="flex items-center justify-between gap-2 px-1">
+                    <span>
+                      {data.formingBarTimestamp ? `${data.formingBarTimestamp.slice(11, 16)}` : ''} {data.timeframe} TRADING PLAN
+                    </span>
+                    {data.merged && (
+                      <span
+                        title={
+                          data.merged_ohlc
+                            ? `Merged candle  H: ${formatPrice(data.merged_ohlc.high)}  L: ${formatPrice(data.merged_ohlc.low)}  C: ${formatPrice(data.merged_ohlc.close)}`
+                            : 'This bar was merged with the previous bar'
+                        }
+                        style={{
+                          background: '#7c3aed',
+                          color: '#fff',
+                          fontSize: '10px',
+                          fontWeight: 700,
+                          letterSpacing: '0.05em',
+                          padding: '2px 7px',
+                          borderRadius: '4px',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        ⛓ MERGED
+                        {data.merged_ohlc && (
+                          <span style={{ fontWeight: 400, marginLeft: 6 }}>
+                            H:{formatPrice(data.merged_ohlc.high)} L:{formatPrice(data.merged_ohlc.low)} C:{formatPrice(data.merged_ohlc.close)}
+                          </span>
+                        )}
+                      </span>
+                    )}
+                  </div>
                 </th>
               </tr>
 

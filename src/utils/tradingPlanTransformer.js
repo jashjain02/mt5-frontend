@@ -116,6 +116,10 @@ export const transformApiDataToTradingPlan = (apiRecord) => {
     timestamp: apiRecord.timestamp_broker_formatted || apiRecord.timestamp_uk_formatted || '',
     date: (apiRecord.timestamp_broker_formatted || apiRecord.timestamp_uk_formatted || '').split(' ')[0],
 
+    // Merge state — set by the backend when two consecutive bars were merged
+    merged:      apiRecord.merged      || false,
+    merged_ohlc: apiRecord.merged_ohlc || null,
+
     // Calculated values for display
     calculatedValues: {
       atr: apiRecord.atr,

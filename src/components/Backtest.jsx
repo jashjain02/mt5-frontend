@@ -70,7 +70,7 @@ const selectCls = 'input-dark appearance-none cursor-pointer pr-8 bg-no-repeat b
 
 const Row = ({ label, children }) => (
   <div className="flex items-center gap-4 py-2.5 border-b border-white/[0.05] last:border-0">
-    <span className="w-28 flex-shrink-0 text-sm font-medium text-text-muted">{label}</span>
+    <span className="w-28 flex-shrink-0 text-sm font-medium text-white">{label}</span>
     <div className="flex flex-1 items-center gap-3 flex-wrap">{children}</div>
   </div>
 );
@@ -102,7 +102,7 @@ const Check = ({ checked, onChange, label }) => (
         </svg>
       )}
     </span>
-    <span className="text-sm text-text-muted group-hover:text-text-base transition-colors duration-150">{label}</span>
+    <span className="text-sm text-white group-hover:text-white transition-colors duration-150">{label}</span>
   </label>
 );
 
@@ -111,8 +111,8 @@ const SubTab = ({ label, active, onClick }) => (
     onClick={onClick}
     className={`px-4 py-1.5 text-sm font-medium rounded-t-lg transition-all duration-150 ${
       active
-        ? 'bg-white/[0.08] text-text-base border border-white/[0.10] border-b-transparent'
-        : 'text-text-muted hover:text-text-base'
+        ? 'bg-white/[0.08] text-white border border-white/[0.10] border-b-transparent'
+        : 'text-white/60 hover:text-white'
     }`}
   >
     {label}
@@ -133,7 +133,7 @@ const MetricsSection = ({ title, rows }) => (
     </div>
     {rows.map(({ label, value, color }) => (
       <div key={label} className="flex items-center border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors">
-        <span className="flex-1 px-3 py-1.5 text-xs text-text-dim">{label}</span>
+        <span className="flex-1 px-3 py-1.5 text-xs text-white">{label}</span>
         <span className={`px-3 py-1.5 text-xs font-mono font-medium ${color || 'text-text-base'}`}>{value}</span>
       </div>
     ))}
@@ -233,7 +233,7 @@ const TradeTable = ({ trades }) => {
         <thead>
           <tr className="border-b border-white/[0.08] bg-white/[0.03]">
             {['#','Entry Time','Dir','Entry','SL','Exit Time','Exit','Exit Reason','P&L (pts)','P&L ($)'].map(h => (
-              <th key={h} className="px-3 py-2.5 text-left font-medium text-text-dim whitespace-nowrap">{h}</th>
+              <th key={h} className="px-3 py-2.5 text-left font-medium text-white whitespace-nowrap">{h}</th>
             ))}
           </tr>
         </thead>
@@ -245,13 +245,13 @@ const TradeTable = ({ trades }) => {
             const pnlColor = pnl == null ? 'text-yellow-400' : pnl > 0 ? 'text-green-400' : 'text-red-400';
             return (
               <tr key={idx} className={`border-b border-white/[0.04] hover:bg-white/[0.04] transition-colors ${rowColor}`}>
-                <td className="px-3 py-2 font-mono text-text-dim">{idx + 1}</td>
-                <td className="px-3 py-2 font-mono text-text-muted whitespace-nowrap">{t.entry_time?.slice(0,16) ?? '—'}</td>
+                <td className="px-3 py-2 font-mono text-white">{idx + 1}</td>
+                <td className="px-3 py-2 font-mono text-white whitespace-nowrap">{t.entry_time?.slice(0,16) ?? '—'}</td>
                 <td className="px-3 py-2"><DirBadge dir={t.direction} /></td>
-                <td className="px-3 py-2 font-mono text-text-base">{fmtPrice(t.entry_price)}</td>
-                <td className="px-3 py-2 font-mono text-text-muted">{fmtPrice(t.sl)}</td>
-                <td className="px-3 py-2 font-mono text-text-muted whitespace-nowrap">{t.exit_time?.slice(0,16) ?? '—'}</td>
-                <td className="px-3 py-2 font-mono text-text-muted">{fmtPrice(t.exit_price)}</td>
+                <td className="px-3 py-2 font-mono text-white">{fmtPrice(t.entry_price)}</td>
+                <td className="px-3 py-2 font-mono text-white">{fmtPrice(t.sl)}</td>
+                <td className="px-3 py-2 font-mono text-white whitespace-nowrap">{t.exit_time?.slice(0,16) ?? '—'}</td>
+                <td className="px-3 py-2 font-mono text-white">{fmtPrice(t.exit_price)}</td>
                 <td className="px-3 py-2">
                   {t.exit_reason === 'SL'
                     ? <span className="text-red-400">SL hit</span>
@@ -280,7 +280,7 @@ const DealTable = ({ deals }) => {
         <thead>
           <tr className="border-b border-white/[0.08] bg-white/[0.03]">
             {['Ticket','Time','Type','Dir','Volume','Price','Commission','Swap','Profit','Balance'].map(h => (
-              <th key={h} className="px-3 py-2.5 text-left font-medium text-text-dim whitespace-nowrap">{h}</th>
+              <th key={h} className="px-3 py-2.5 text-left font-medium text-white whitespace-nowrap">{h}</th>
             ))}
           </tr>
         </thead>
@@ -290,20 +290,20 @@ const DealTable = ({ deals }) => {
               : d.profit > 0 ? 'text-green-400' : d.profit < 0 ? 'text-red-400' : 'text-text-dim';
             return (
               <tr key={idx} className="border-b border-white/[0.04] hover:bg-white/[0.03] transition-colors">
-                <td className="px-3 py-2 font-mono text-text-dim">{d.ticket}</td>
-                <td className="px-3 py-2 font-mono text-text-muted whitespace-nowrap">{d.time?.slice(0,16)}</td>
+                <td className="px-3 py-2 font-mono text-white">{d.ticket}</td>
+                <td className="px-3 py-2 font-mono text-white whitespace-nowrap">{d.time?.slice(0,16)}</td>
                 <td className="px-3 py-2">
                   <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${
                     d.type === 'IN' ? 'bg-blue-400/10 text-blue-400' : 'bg-orange-400/10 text-orange-400'
                   }`}>{d.type}</span>
                 </td>
                 <td className="px-3 py-2"><DirBadge dir={d.direction} /></td>
-                <td className="px-3 py-2 font-mono text-text-muted">{d.volume}</td>
-                <td className="px-3 py-2 font-mono text-text-base">{fmtPrice(d.price)}</td>
-                <td className="px-3 py-2 font-mono text-text-muted">{d.commission !== 0 ? fmtNum(d.commission, 4) : '0'}</td>
-                <td className="px-3 py-2 font-mono text-text-muted">{d.swap !== 0 ? fmtNum(d.swap, 4) : '0'}</td>
+                <td className="px-3 py-2 font-mono text-white">{d.volume}</td>
+                <td className="px-3 py-2 font-mono text-white">{fmtPrice(d.price)}</td>
+                <td className="px-3 py-2 font-mono text-white">{d.commission !== 0 ? fmtNum(d.commission, 4) : '0'}</td>
+                <td className="px-3 py-2 font-mono text-white">{d.swap !== 0 ? fmtNum(d.swap, 4) : '0'}</td>
                 <td className={`px-3 py-2 font-mono ${profitColor}`}>{d.type === 'IN' ? '—' : fmtCurr(d.profit)}</td>
-                <td className="px-3 py-2 font-mono text-text-base">${fmtNum(d.balance)}</td>
+                <td className="px-3 py-2 font-mono text-white">${fmtNum(d.balance)}</td>
               </tr>
             );
           })}
@@ -337,17 +337,21 @@ const tickFmt = (v) => {
   catch { return ''; }
 };
 
+const WHITE_TICK = { fontSize: 10, fill: '#ffffff' };
+const WHITE_TICK_SM = { fontSize: 9, fill: '#ffffff' };
+const LEGEND_STYLE = { fontSize: '11px', color: '#ffffff' };
+
 const EquityBalanceChart = ({ data }) => {
   if (!data || data.length === 0) return null;
   return (
     <div>
-      <p className="text-xs text-text-dim mb-2 font-medium">Balance & Equity</p>
+      <p className="text-xs text-white mb-2 font-medium">Balance & Equity</p>
       <ResponsiveContainer width="100%" height={240}>
         <LineChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-          <XAxis dataKey="time" tickFormatter={tickFmt} tick={{ fontSize: 10, fill: '#6b7280' }} minTickGap={60} />
-          <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickFormatter={v => `$${v.toLocaleString()}`} width={72} />
+          <XAxis dataKey="time" tickFormatter={tickFmt} tick={WHITE_TICK} minTickGap={60} />
+          <YAxis tick={WHITE_TICK} tickFormatter={v => `$${v.toLocaleString()}`} width={72} />
           <Tooltip {...DARK_TOOLTIP} labelFormatter={tickFmt} formatter={(v, n) => [`$${Number(v).toFixed(2)}`, n]} />
-          <Legend wrapperStyle={{ fontSize: '11px' }} />
+          <Legend wrapperStyle={LEGEND_STYLE} />
           <Line type="monotone" dataKey="balance" stroke="#22c55e" dot={false} name="Balance" strokeWidth={1.5} />
           <Line type="monotone" dataKey="equity"  stroke="#3b82f6" dot={false} name="Equity"  strokeWidth={1} strokeDasharray="4 2" />
         </LineChart>
@@ -360,11 +364,11 @@ const DrawdownChart = ({ data }) => {
   if (!data || data.length === 0) return null;
   return (
     <div>
-      <p className="text-xs text-text-dim mb-2 font-medium">Equity Drawdown %</p>
+      <p className="text-xs text-white mb-2 font-medium">Equity Drawdown %</p>
       <ResponsiveContainer width="100%" height={140}>
         <AreaChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-          <XAxis dataKey="time" tickFormatter={tickFmt} tick={{ fontSize: 10, fill: '#6b7280' }} minTickGap={60} />
-          <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickFormatter={v => `${v.toFixed(1)}%`} width={52} />
+          <XAxis dataKey="time" tickFormatter={tickFmt} tick={WHITE_TICK} minTickGap={60} />
+          <YAxis tick={WHITE_TICK} tickFormatter={v => `${v.toFixed(1)}%`} width={52} />
           <Tooltip {...DARK_TOOLTIP} labelFormatter={tickFmt} formatter={(v) => [`${Number(v).toFixed(2)}%`, 'Drawdown']} />
           <Area type="monotone" dataKey="dd_pct" stroke="#ef4444" fill="#ef444420" strokeWidth={1} name="Drawdown %" />
         </AreaChart>
@@ -377,11 +381,11 @@ const TimeBarChart = ({ data, title, labelKey = 'label', profitKey = 'profit', c
   if (!data || data.length === 0) return null;
   return (
     <div>
-      <p className="text-xs text-text-dim mb-2 font-medium">{title}</p>
+      <p className="text-xs text-white mb-2 font-medium">{title}</p>
       <ResponsiveContainer width="100%" height={120}>
         <BarChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-          <XAxis dataKey={labelKey} tick={{ fontSize: 9, fill: '#6b7280' }} />
-          <YAxis tick={{ fontSize: 9, fill: '#6b7280' }} tickFormatter={v => `$${v}`} width={48} />
+          <XAxis dataKey={labelKey} tick={WHITE_TICK_SM} />
+          <YAxis tick={WHITE_TICK_SM} tickFormatter={v => `$${v}`} width={48} />
           <Tooltip {...DARK_TOOLTIP} formatter={(v, n) => [`$${Number(v).toFixed(2)}`, n]} />
           <Bar dataKey={profitKey} name="Profit" radius={[2, 2, 0, 0]}>
             {data.map((entry, i) => (
@@ -430,16 +434,14 @@ const JournalTab = ({ journal }) => {
   return (
     <div className="flex flex-col overflow-auto h-full font-mono text-xs">
       {journal.map((entry, i) => (
-        <div key={i} className={`flex gap-3 px-3 py-1.5 border-b border-white/[0.03] hover:bg-white/[0.02] ${
-          entry.level === 'ERROR' ? 'text-red-400'
-          : entry.level === 'WARN' ? 'text-yellow-400'
-          : 'text-text-muted'
-        }`}>
-          <span className="text-text-dim flex-shrink-0 w-36">{entry.time?.slice(0,16)}</span>
+        <div key={i} className="flex gap-3 px-3 py-1.5 border-b border-white/[0.03] hover:bg-white/[0.02]">
+          <span className="text-white flex-shrink-0 w-36">{entry.time?.slice(0,16)}</span>
           <span className={`flex-shrink-0 w-10 font-bold ${
             entry.level === 'ERROR' ? 'text-red-400' : entry.level === 'WARN' ? 'text-yellow-400' : 'text-blue-400'
           }`}>{entry.level}</span>
-          <span className="flex-1 break-words">{entry.message}</span>
+          <span className={`flex-1 break-words ${
+            entry.level === 'ERROR' ? 'text-red-300' : entry.level === 'WARN' ? 'text-yellow-200' : 'text-white'
+          }`}>{entry.message}</span>
         </div>
       ))}
     </div>
@@ -666,7 +668,7 @@ export default function Backtest() {
               <span className="text-sm text-text-muted">ms</span>
             </div>
           )}
-          <span className="flex items-center gap-1.5 text-xs text-text-dim">
+          <span className="flex items-center gap-1.5 text-xs text-white">
             <Info size={12} className="flex-shrink-0" />
             emulates slippage and requotes
           </span>
@@ -688,31 +690,31 @@ export default function Backtest() {
           <Sel value={leverage} onChange={setLeverage} className="w-28">
             {LEVERAGES.map(l => <option key={l}>{l}</option>)}
           </Sel>
-          <span className="text-sm text-text-muted">leverage</span>
+          <span className="text-sm text-white">leverage</span>
           <input type="number" value={lotSize} onChange={e => setLotSize(e.target.value)}
             className="input-dark w-20 text-right" step="0.01" min="0.01" placeholder="0.01" />
-          <span className="text-sm text-text-muted">lot</span>
+          <span className="text-sm text-white">lot</span>
         </Row>
 
         {/* Commission / Spread / Swap — collapsed into a single row */}
         <Row label="Costs">
           <div className="flex items-center gap-2">
-            <span className="text-xs text-text-dim">Commission:</span>
+            <span className="text-xs text-white">Commission:</span>
             <input type="number" value={commission} onChange={e => setCommission(e.target.value)}
               className="input-dark w-20 text-right text-xs" step="0.1" />
-            <span className="text-xs text-text-dim">$/lot</span>
+            <span className="text-xs text-white">$/lot</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-text-dim">Spread:</span>
+            <span className="text-xs text-white">Spread:</span>
             <input type="number" value={spread} onChange={e => setSpread(e.target.value)}
               className="input-dark w-20 text-right text-xs" step="0.1" />
-            <span className="text-xs text-text-dim">pts</span>
+            <span className="text-xs text-white">pts</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-text-dim">Swap L/S:</span>
+            <span className="text-xs text-white">Swap L/S:</span>
             <input type="number" value={swapLong} onChange={e => setSwapLong(e.target.value)}
               className="input-dark w-20 text-right text-xs" step="0.1" />
-            <span className="text-xs text-text-dim">/</span>
+            <span className="text-xs text-white">/</span>
             <input type="number" value={swapShort} onChange={e => setSwapShort(e.target.value)}
               className="input-dark w-20 text-right text-xs" step="0.1" />
           </div>
