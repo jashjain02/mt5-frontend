@@ -473,6 +473,13 @@ export default function Backtest() {
   const [swapLong,    setSwapLong]    = useState('-6.4');
   const [swapShort,   setSwapShort]   = useState('-0.6');
 
+  // ── Merge-rules state ──────────────────────────────────────────────────────
+  const [useMergeRules,     setUseMergeRules]     = useState(false);
+  const [mergeRules,        setMergeRules]        = useState([]);          // from DB
+  const [selectedMergeRules,setSelectedMergeRules]= useState(new Set());
+  const [mergeThreshold,    setMergeThreshold]    = useState('0.146');
+  const [mergeRulesLoading, setMergeRulesLoading] = useState(false);
+
   const [activeSubTab, setActiveSubTab] = useState('overview');
   const [isRunning,   setIsRunning]   = useState(false);
   const [elapsed,     setElapsed]     = useState(0);
@@ -487,6 +494,19 @@ export default function Backtest() {
     const dates = periodToDates(datePeriod);
     if (dates) { setStartDate(dates.start); setEndDate(dates.end); }
   }, [datePeriod]);
+
+  useEffect(() => {
+    if (!useMergeRules || mergeRules.length > 0) return;
+    setMergeRulesLoading(true);
+    api.getMergeRules()
+      .then(resp => {
+        const rules = resp?.rules || [];
+        setMergeRules(rules);
+        setSelectedMergeRules(new Set(rules.map(r => r.id)));
+      })
+      .catch(() => {})
+      .finally(() => setMergeRulesLoading(false));
+  }, [useMergeRules]);
 
   const handleStartStop = async () => {
     if (isRunning) {
@@ -517,6 +537,12 @@ export default function Backtest() {
         spread:             parseFloat(spread)     || 3,
         swap_long:          parseFloat(swapLong)   || -6.4,
         swap_short:         parseFloat(swapShort)  || -0.6,
+        // Merge-aware mode
+        use_merge_rules: useMergeRules,
+        ...(useMergeRules && {
+          merge_rules:      Array.from(selectedMergeRules).sort((a, b) => a - b),
+          merge_threshold:  parseFloat(mergeThreshold) || 0.146,
+        }),
       });
       if (!abortRef.current) setResults(data);
     } catch (err) {
@@ -718,6 +744,63 @@ export default function Backtest() {
             <input type="number" value={swapShort} onChange={e => setSwapShort(e.target.value)}
               className="input-dark w-20 text-right text-xs" step="0.1" />
           </div>
+        </Row>
+
+        <Row label="Merge Rules">
+          <Check
+            checked={useMergeRules}
+            onChange={() => setUseMergeRules(v => !v)}
+            label="Apply merge rules before running strategy"
+          />
+          {useMergeRules && (
+            <div className="flex items-center gap-3 flex-wrap mt-1">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-white">Threshold:</span>
+                {['0.073', '0.146'].map(v => (
+                  <button
+                    key={v}
+                    onClick={() => setMergeThreshold(v)}
+                    className={`px-3 py-1 rounded-lg text-xs font-medium border transition-all ${
+                      mergeThreshold === v
+                        ? 'bg-violet-600 text-white border-violet-600'
+                        : 'text-gray-300 border-white/10 hover:border-violet-500'
+                    }`}
+                    style={mergeThreshold !== v ? { background: 'rgba(255,255,255,0.06)' } : {}}
+                  >
+                    {v === '0.073' ? '7.3%' : '14.6%'}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                {mergeRulesLoading && (
+                  <span className="text-xs text-gray-400">Loading rules…</span>
+                )}
+                {mergeRules.map(rule => (
+                  <label key={rule.id} className="flex items-center gap-1.5 cursor-pointer select-none">
+                    <span
+                      onClick={() => setSelectedMergeRules(prev => {
+                        const next = new Set(prev);
+                        next.has(rule.id) ? next.delete(rule.id) : next.add(rule.id);
+                        return next;
+                      })}
+                      className={`w-3.5 h-3.5 rounded flex-shrink-0 flex items-center justify-center border transition-colors ${
+                        selectedMergeRules.has(rule.id)
+                          ? 'bg-violet-600 border-violet-600'
+                          : 'bg-white/[0.06] border-white/[0.15]'
+                      }`}
+                    >
+                      {selectedMergeRules.has(rule.id) && (
+                        <svg viewBox="0 0 10 8" className="w-2 h-2 fill-none stroke-white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M1 4l2.5 2.5L9 1"/>
+                        </svg>
+                      )}
+                    </span>
+                    <span className="text-xs text-gray-300">#{rule.rule_order ?? rule.id}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
         </Row>
 
       </div>

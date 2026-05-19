@@ -76,7 +76,8 @@ export default function MergeTesting() {
   const [running,   setRunning]   = useState(false);
   const [runError,  setRunError]  = useState(null);
   const [session,   setSession]   = useState(null);   // current session metadata
-  const pollRef = useRef(null);
+  const pollRef   = useRef(null);
+  const errorRef  = useRef(null);
 
   // ── Results state ──────────────────────────────────────────────────────────
   const [rows,       setRows]       = useState([]);
@@ -91,6 +92,13 @@ export default function MergeTesting() {
 
   // ── Cleanup polls on unmount ───────────────────────────────────────────────
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
+
+  // ── Scroll error into view whenever it appears ───────────────────────────
+  useEffect(() => {
+    if (runError && errorRef.current) {
+      errorRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [runError]);
 
   // ── Load merge rules from DB on mount ─────────────────────────────────────
   useEffect(() => {
@@ -211,8 +219,8 @@ export default function MergeTesting() {
       const resp = await api.runMergeAnalysis({
         symbol,
         timeframe,
-        start_date:              startDate,
-        end_date:                endDate,
+        start_date:              startDate.slice(0, 16),   // strip seconds if browser adds them
+        end_date:                endDate.slice(0, 16),
         rules:                   Array.from(selectedRules).sort((a, b) => a - b),
         threshold:               parsedThreshold,
         // Only send selected_exceptions if some are excluded; null = all active
@@ -613,9 +621,9 @@ export default function MergeTesting() {
 
           {/* Error */}
           {runError && (
-            <div className="flex items-center gap-2 px-4 py-3 rounded-xl text-red-400 text-sm" style={{ background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.20)' }}>
+            <div ref={errorRef} className="flex items-center gap-2 px-4 py-3 rounded-xl text-red-400 text-sm" style={{ background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.20)' }}>
               <AlertCircle size={16} />
-              {runError}
+              {String(runError)}
             </div>
           )}
         </motion.div>

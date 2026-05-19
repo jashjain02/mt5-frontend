@@ -67,11 +67,11 @@ class ApiService {
       }
 
       if (!response.ok) {
-        throw {
-          status: response.status,
-          message: data.detail || 'An error occurred',
-          data,
-        };
+        const detail = data.detail;
+        const message = Array.isArray(detail)
+          ? detail.map(e => e.msg || JSON.stringify(e)).join('; ')
+          : (detail || 'An error occurred');
+        throw { status: response.status, message, data };
       }
 
       return data;
