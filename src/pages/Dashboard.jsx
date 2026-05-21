@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+﻿import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard,
@@ -838,11 +838,11 @@ const HistoricalDataContent = () => {
     if (!valuesData || valuesData.length === 0) return ohlcvData;
     const valuesMap = {};
     valuesData.forEach(v => {
-      const key = v.timestamp_formatted || v.timestamp_uk_formatted || normalizeTimestamp(v.timestamp_uk);
+      const key = v.timestamp_formatted || v.timestamp_broker_formatted || normalizeTimestamp(v.timestamp_broker);
       valuesMap[key] = v;
     });
     return ohlcvData.map(row => {
-      const tsUk = row.timestamp_uk_formatted || normalizeTimestamp(row.timestamp_uk);
+      const tsUk = row.timestamp_broker_formatted || normalizeTimestamp(row.timestamp_broker);
       const tsBroker = row.timestamp_formatted || normalizeTimestamp(row.timestamp);
       const calcValues = valuesMap[tsUk] || valuesMap[tsBroker];
       if (calcValues) return { ...row, ...calcValues };
@@ -908,7 +908,8 @@ const HistoricalDataContent = () => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
     setWsStatus('connecting');
     try {
-      const ws = new WebSocket(`${WS_BASE_URL}/calculated-values/ws`);
+      const wsToken = api.getToken();
+      const ws = new WebSocket(`${WS_BASE_URL}/calculated-values/ws${wsToken ? `?token=${wsToken}` : ''}`);
       ws.onopen = () => {
         setWsConnected(true);
         setWsStatus('connected');
@@ -924,7 +925,7 @@ const HistoricalDataContent = () => {
               const existing = prev[key];
               if (!existing) return prev;
               const exists = existing.data.some(d =>
-                (d.timestamp_uk || d.timestamp_formatted) === (newCalcData.timestamp_uk_formatted || newCalcData.timestamp_uk)
+                (d.timestamp_broker || d.timestamp_formatted) === (newCalcData.timestamp_broker_formatted || newCalcData.timestamp_broker)
               );
               if (exists) return prev;
               const newRow = { ...newCalcData, _isNew: true };
@@ -988,8 +989,8 @@ const HistoricalDataContent = () => {
 
   const formatTimestamp = (row) => {
     if (row.timestamp_formatted) return row.timestamp_formatted;
-    if (row.timestamp_uk_formatted) return row.timestamp_uk_formatted;
-    const ts = row.timestamp || row.timestamp_uk;
+    if (row.timestamp_broker_formatted) return row.timestamp_broker_formatted;
+    const ts = row.timestamp || row.timestamp_broker;
     if (!ts) return '-';
     return new Date(ts).toLocaleString('en-GB', {
       year: 'numeric', month: '2-digit', day: '2-digit',

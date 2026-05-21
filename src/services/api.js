@@ -110,7 +110,6 @@ class ApiService {
     return this.request('/register', {
       method: 'POST',
       body: JSON.stringify(payload),
-      skipAuth: true,
     });
   }
 
@@ -118,7 +117,6 @@ class ApiService {
     return this.request('/login', {
       method: 'POST',
       body: JSON.stringify({ email_id: email, password: password }),
-      skipAuth: true,
     });
   }
 
@@ -129,7 +127,6 @@ class ApiService {
         email_id: email,
         otp_code: otpCode,
       }),
-      skipAuth: true,
     });
   }
 
@@ -139,7 +136,6 @@ class ApiService {
       body: JSON.stringify({
         email_id: email,
       }),
-      skipAuth: true,
     });
   }
 
@@ -149,7 +145,6 @@ class ApiService {
       body: JSON.stringify({
         email_id: email,
       }),
-      skipAuth: true,
     });
   }
 
@@ -161,7 +156,6 @@ class ApiService {
         reset_token: resetToken,
         new_password: newPassword,
       }),
-      skipAuth: true,
     });
   }
 
@@ -232,7 +226,6 @@ class ApiService {
 
     return this.request(`/ohlcv?${params.toString()}`, {
       method: 'GET',
-      skipAuth: true,
     });
   }
 
@@ -240,7 +233,6 @@ class ApiService {
     const params = timeframe ? `?timeframe=${timeframe}` : '';
     return this.request(`/ohlcv/symbols${params}`, {
       method: 'GET',
-      skipAuth: true,
     });
   }
 
@@ -339,15 +331,19 @@ class ApiService {
 
     return this.request(`/calculated-values?${params.toString()}`, {
       method: 'GET',
-      skipAuth: true,
     });
+  }
+
+  async getCalculatedValuesTimestamps(symbol, timeframe, date = null) {
+    const params = new URLSearchParams({ symbol, timeframe, limit: 200 });
+    if (date) params.append('date', date);
+    return this.request(`/calculated-values/timestamps?${params.toString()}`, { method: 'GET' });
   }
 
   async getTradeLogs(symbol, timeframe, barTimestamp) {
     const params = new URLSearchParams({ symbol, timeframe, bar_timestamp: barTimestamp });
     return this.request(`/calculated-values/trade-logs?${params.toString()}`, {
       method: 'GET',
-      skipAuth: true,
     });
   }
 
@@ -362,7 +358,6 @@ class ApiService {
                                        params.append('action_only', options.actionOnly);
     return this.request(`/candle-merges?${params.toString()}`, {
       method: 'GET',
-      skipAuth: true,
     });
   }
 
@@ -372,14 +367,12 @@ class ApiService {
     return this.request('/merge-analysis/run', {
       method: 'POST',
       body: JSON.stringify(payload),
-      skipAuth: true,
     });
   }
 
   async getMergeSession(sessionId) {
     return this.request(`/merge-analysis/session/${sessionId}`, {
       method: 'GET',
-      skipAuth: true,
     });
   }
 
@@ -390,7 +383,6 @@ class ApiService {
     });
     return this.request(`/merge-analysis/results/${sessionId}?${params.toString()}`, {
       method: 'GET',
-      skipAuth: true,
     });
   }
 
@@ -401,14 +393,12 @@ class ApiService {
     if (options.limit)     params.append('limit',     options.limit);
     return this.request(`/merge-analysis/sessions?${params.toString()}`, {
       method: 'GET',
-      skipAuth: true,
     });
   }
 
   async deleteMergeSession(sessionId) {
     return this.request(`/merge-analysis/session/${sessionId}`, {
       method: 'DELETE',
-      skipAuth: true,
     });
   }
 
@@ -498,14 +488,6 @@ class ApiService {
   async getMT5History(accountId, fromDate, toDate) {
     const params = new URLSearchParams({ account_id: accountId, from_date: fromDate, to_date: toDate });
     return this.request(`/execute/mt5-history?${params.toString()}`, { method: 'GET' });
-  }
-
-  async getMT5Accounts() {
-    return this.request('/mt5-accounts', { method: 'GET' });
-  }
-
-  async refreshMT5Account(accountId) {
-    return this.request(`/mt5-accounts/${accountId}/refresh`, { method: 'POST' });
   }
 
   async placeManualTrade(params) {

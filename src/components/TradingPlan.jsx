@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+﻿import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Calendar, AlertCircle, ChevronDown, Clock, FileText, Wifi, WifiOff, RefreshCw } from 'lucide-react';
 import api from '../services/api';
@@ -25,7 +25,9 @@ const TradingPlan = () => {
   const [selectedTimestamp, setSelectedTimestamp] = useState('');
   const [isTimeframeDropdownOpen, setIsTimeframeDropdownOpen] = useState(false);
   const [isTimestampDropdownOpen, setIsTimestampDropdownOpen] = useState(false);
+  // Each entry: { value: "YYYY-MM-DD HH:MM:SS", display: "HH:MM:SS - HH:MM:SS" }
   const [availableTimestamps, setAvailableTimestamps] = useState([]);
+  const [isLoadingTimestamps, setIsLoadingTimestamps] = useState(false);
   const [planData, setPlanData] = useState(null);
   const [error, setError] = useState('');
 
@@ -47,29 +49,46 @@ const TradingPlan = () => {
     D1: 1440, W1: 10080, MN1: 43200,
   };
 
-  // Generate available timestamps based on timeframe
+  // Fetch real DB timestamps when date or timeframe changes.
+  // Only slots that exist in the database are shown — no synthetic generation.
   useEffect(() => {
-    if (selectedDate && selectedTimeframe) {
-      const periodMins = TF_MINUTES[selectedTimeframe] || 60;
-      const timestamps = [];
-      const totalMins = periodMins >= 1440 ? 1440 : 1440; // always generate for 24h window
-      for (let m = 0; m < totalMins; m += periodMins) {
-        const hh = String(Math.floor(m / 60)).padStart(2, '0');
-        const mm = String(m % 60).padStart(2, '0');
-        const endM = m + periodMins - 1;
-        const ehh = String(Math.floor(Math.min(endM, 1439) / 60)).padStart(2, '0');
-        const emm = String(Math.min(endM, 1439) % 60).padStart(2, '0');
-        timestamps.push(`${hh}:${mm}:00 - ${ehh}:${emm}:59`);
-      }
-      if (timestamps.length === 0) timestamps.push('00:00:00 - 23:59:59');
-      setAvailableTimestamps(timestamps);
-      if (!timestamps.includes(selectedTimestamp)) {
-        setSelectedTimestamp(timestamps[0]);
-      }
-    } else {
+    if (!selectedDate || !selectedTimeframe) {
       setAvailableTimestamps([]);
       setSelectedTimestamp('');
+      return;
     }
+    let cancelled = false;
+    setIsLoadingTimestamps(true);
+    setAvailableTimestamps([]);
+    setSelectedTimestamp('');
+
+    api.getCalculatedValuesTimestamps('XAUUSD', selectedTimeframe, selectedDate)
+      .then(resp => {
+        if (cancelled) return;
+        if (resp.success && resp.timestamps.length > 0) {
+          const tfMins = TF_MINUTES[selectedTimeframe] || 60;
+          // Build display label "HH:MM:SS - HH:MM:SS" from the bar's broker timestamp
+          const slots = resp.timestamps.map(ts => {
+            const timePart = ts.label.split(' ')[1]; // "HH:MM:SS"
+            const [h, m] = timePart.split(':').map(Number);
+            const startMins = h * 60 + m;
+            const endMins   = startMins + tfMins - 1;
+            const eh  = String(Math.floor(Math.min(endMins, 1439) / 60)).padStart(2, '0');
+            const em  = String(Math.min(endMins % 60, 59)).padStart(2, '0');
+            return { value: ts.value, display: `${timePart} - ${eh}:${em}:59` };
+          });
+          setAvailableTimestamps(slots);
+          setSelectedTimestamp(slots[0].display);
+        } else {
+          setAvailableTimestamps([]);
+        }
+      })
+      .catch(() => { if (!cancelled) setAvailableTimestamps([]); })
+      // Always clear the loading spinner — even if cancelled (superseded request) we
+      // must not leave the button frozen. The new effect will re-set it to true if needed.
+      .finally(() => setIsLoadingTimestamps(false));
+
+    return () => { cancelled = true; };
   }, [selectedDate, selectedTimeframe]);
 
   const glassStyle = {
@@ -80,13 +99,11 @@ const TradingPlan = () => {
     boxShadow: '0 4px 24px rgba(0,0,0,0.30)',
   };
 
-  // Format display date with timestamp
-  const getDisplayDateTime = () => {
-    if (!selectedDate) return '';
-    if (!selectedTimestamp) return selectedDate;
-    // Extract start time from timestamp (e.g., "00:00:00" from "00:00:00 - 00:59:59")
-    const startTime = selectedTimestamp.split(' - ')[0];
-    return `${selectedDate} ${startTime}`;
+  // Return the actual DB bar timestamp for the currently selected slot.
+  const getSelectedSlotValue = () => {
+    if (!selectedTimestamp) return null;
+    const slot = availableTimestamps.find(s => s.display === selectedTimestamp);
+    return slot ? slot.value : null;
   };
 
   const handleLoadPlan = async () => {
@@ -109,22 +126,20 @@ const TradingPlan = () => {
     // SWITCH TO HISTORICAL MODE
     setIsLiveMode(false);
 
-    // Fetch from API with date filtering
+    // Fetch from API using the exact bar timestamp from the DB slot.
     setIsLoadingApi(true);
     try {
-      // Construct the full datetime string for filtering
-      const startTime = selectedTimestamp.split(' - ')[0]; // Extract "HH:MM:SS" from "HH:MM:SS - HH:MM:SS"
-      const startDateTime = `${selectedDate} ${startTime}`;
+      const slotValue = getSelectedSlotValue(); // "YYYY-MM-DD HH:MM:SS" — exact broker bar timestamp
+      if (!slotValue) {
+        setError('Selected time slot not found. Please select again.');
+        setIsLoadingApi(false);
+        return;
+      }
 
-      // For end_date, use the same date with the end time from timestamp range
-      const endTime = selectedTimestamp.split(' - ')[1]; // Extract end time
-      const endDateTime = `${selectedDate} ${endTime}`;
-
-      // Fetch 2 bars ending at the selected time
-      // Trade logs were detected using the PREVIOUS bar's RC/FC levels
+      // Use the exact bar timestamp as the end boundary (timestamp_broker <= slotValue returns this bar).
       const response = await api.getCalculatedValues('XAUUSD', selectedTimeframe, {
         limit: 2,
-        endDate: endDateTime,  // Get bars up to and including the selected time
+        endDate: slotValue,
       });
 
       if (response.success && response.data.length > 0) {
@@ -147,11 +162,11 @@ const TradingPlan = () => {
         setApiData(transformedData);
 
         // Store the selected bar's timestamp as the monitoring period (broker time for display)
-        transformedData.formingBarTimestamp = selectedBar.timestamp_broker_formatted || selectedBar.timestamp_uk_formatted;
+        transformedData.formingBarTimestamp = selectedBar.timestamp_broker_formatted || selectedBar.timestamp_broker_formatted;
 
         // Fetch trade logs for the SELECTED bar (that's where logs are stored)
         try {
-          const barTs = selectedBar.timestamp_uk_formatted;
+          const barTs = selectedBar.timestamp_broker_formatted;
           if (barTs) {
             const logsResp = await api.getTradeLogs('XAUUSD', selectedTimeframe, barTs);
             if (logsResp.success && logsResp.logs) {
@@ -159,12 +174,12 @@ const TradingPlan = () => {
             }
           }
         } catch (logErr) {
-          console.debug('Could not fetch trade logs:', logErr);
+          console.warn('[TradeLogs] Fetch failed (historical):', logErr);
         }
 
         setPlanData(transformedData);
       } else {
-        setError(`No data available for ${getDisplayDateTime()} at ${getTimeframeDisplayName(selectedTimeframe)}`);
+        setError(`No data available for ${getSelectedSlotValue() || selectedTimestamp} at ${getTimeframeDisplayName(selectedTimeframe)}`);
         setPlanData(null);
       }
     } catch (err) {
@@ -179,17 +194,20 @@ const TradingPlan = () => {
   // Derive the forming bar's timestamp from the completed bar's timestamp
   // by adding one timeframe period. This avoids client-side timezone guessing
   // since the completed bar's timestamp comes directly from the backend DB.
+  // Treat the broker timestamp string as UTC (append 'Z') so arithmetic is
+  // performed in UTC regardless of the browser's local timezone.
+  // Broker timestamps have no DST; UTC arithmetic preserves wall-clock values exactly.
   const getNextBarTimestamp = (completedTimestamp, timeframe) => {
     if (!completedTimestamp) return null;
-    const date = new Date(completedTimestamp.replace(' ', 'T'));
+    const date = new Date(completedTimestamp.replace(' ', 'T') + 'Z');
     const mins = TF_MINUTES[timeframe] || 60;
-    date.setMinutes(date.getMinutes() + mins);
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
-    const h = String(date.getHours()).padStart(2, '0');
-    const min = String(date.getMinutes()).padStart(2, '0');
-    const s = String(date.getSeconds()).padStart(2, '0');
+    date.setUTCMinutes(date.getUTCMinutes() + mins);
+    const y   = date.getUTCFullYear();
+    const m   = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const d   = String(date.getUTCDate()).padStart(2, '0');
+    const h   = String(date.getUTCHours()).padStart(2, '0');
+    const min = String(date.getUTCMinutes()).padStart(2, '0');
+    const s   = String(date.getUTCSeconds()).padStart(2, '0');
     return `${y}-${m}-${d} ${h}:${min}:${s}`;
   };
 
@@ -223,11 +241,11 @@ const TradingPlan = () => {
 
         // Derive the FORMING bar's timestamp from the completed bar's timestamp
         // Trade logs are stored with this timestamp (the bar where crossings occur) — keep in UTC for API calls
-        const formingBarTs = getNextBarTimestamp(completedBar.timestamp_uk_formatted, selectedTimeframe);
+        const formingBarTs = getNextBarTimestamp(completedBar.timestamp_broker_formatted, selectedTimeframe);
 
         // For display, derive from broker time (UTC+3) so the label matches MT5
         const formingBarTs_display = getNextBarTimestamp(
-          completedBar.timestamp_broker_formatted || completedBar.timestamp_uk_formatted,
+          completedBar.timestamp_broker_formatted || completedBar.timestamp_broker_formatted,
           selectedTimeframe
         );
         transformedData.formingBarTimestamp = formingBarTs_display;
@@ -245,7 +263,7 @@ const TradingPlan = () => {
             transformedData.tradeLogs = [];
           }
         } catch (logErr) {
-          console.debug('Could not fetch trade logs for forming bar:', logErr);
+          console.warn('[TradeLogs] Fetch failed for forming bar:', logErr, '| timestamp:', formingBarTs);
           transformedData.tradeLogs = [];
         }
 
@@ -271,7 +289,8 @@ const TradingPlan = () => {
   const connectWebSocket = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
-    const ws = new WebSocket(`${WS_BASE_URL}/calculated-values/ws`);
+    const wsToken = api.getToken();
+    const ws = new WebSocket(`${WS_BASE_URL}/calculated-values/ws${wsToken ? `?token=${wsToken}` : ''}`);
 
     ws.onopen = () => {
       console.log('Trading Plan WebSocket connected');
@@ -360,7 +379,7 @@ const TradingPlan = () => {
               const newLogs = message.logs || [];
 
               // Check if logs belong to the current forming bar
-              const messageBarTs = message.bar_timestamp_uk;
+              const messageBarTs = message.bar_timestamp_broker;
               const currentBarTs = prevPlan.formingBarTimestamp;
 
               // If bar timestamp changed, clear old logs and start fresh
@@ -446,6 +465,17 @@ const TradingPlan = () => {
     }
   }, [selectedTimeframe]); // Re-run when timeframe changes
 
+  // Periodic refresh in live mode: every 60 s, re-fetch the latest plan so the
+  // monitoring timestamp stays current even if a bar-completion WebSocket event
+  // was missed (e.g. after a server restart or a brief connectivity gap).
+  useEffect(() => {
+    if (!isLiveMode) return;
+    const intervalId = setInterval(() => {
+      loadLatestPlan();
+    }, 60_000);
+    return () => clearInterval(intervalId);
+  }, [isLiveMode, selectedTimeframe]);
+
   return (
     <div className="space-y-5">
       {/* Header */}
@@ -519,33 +549,35 @@ const TradingPlan = () => {
           </label>
           <button
             onClick={() => setIsTimestampDropdownOpen(!isTimestampDropdownOpen)}
-            disabled={availableTimestamps.length === 0}
+            disabled={availableTimestamps.length === 0 || isLoadingTimestamps}
             className={`flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl border border-white/[0.08] text-gray-100 text-sm font-medium min-w-[200px] hover:border-emerald-500/40 transition-colors focus:outline-none ${
-              availableTimestamps.length === 0 ? 'opacity-40 cursor-not-allowed' : ''
+              (availableTimestamps.length === 0 || isLoadingTimestamps) ? 'opacity-40 cursor-not-allowed' : ''
             }`}
             style={{ background: 'rgba(255,255,255,0.05)' }}
           >
             <div className="flex items-center gap-2">
               <Clock size={14} className="text-gray-500" />
-              <span className="truncate">{selectedTimestamp || 'Select time...'}</span>
+              <span className="truncate">
+                {isLoadingTimestamps ? 'Loading...' : selectedTimestamp || 'Select time...'}
+              </span>
             </div>
             <ChevronDown size={18} className={`transition-transform flex-shrink-0 text-gray-400 ${isTimestampDropdownOpen ? 'rotate-180' : ''}`} />
           </button>
 
           {isTimestampDropdownOpen && availableTimestamps.length > 0 && (
             <div className="absolute top-full left-0 mt-2 w-full rounded-xl border border-white/[0.08] shadow-xl z-[9999] max-h-60 overflow-y-auto" style={{ background: '#0d1421' }}>
-              {availableTimestamps.map((ts) => (
+              {availableTimestamps.map((slot) => (
                 <button
-                  key={ts}
+                  key={slot.value}
                   onClick={() => {
-                    setSelectedTimestamp(ts);
+                    setSelectedTimestamp(slot.display);
                     setIsTimestampDropdownOpen(false);
                   }}
                   className={`w-full text-left px-4 py-2.5 text-sm transition-colors first:rounded-t-xl last:rounded-b-xl font-mono ${
-                    selectedTimestamp === ts ? 'bg-emerald-500/10 text-emerald-400 font-medium' : 'text-gray-400 hover:bg-white/[0.05] hover:text-gray-100'
+                    selectedTimestamp === slot.display ? 'bg-emerald-500/10 text-emerald-400 font-medium' : 'text-gray-400 hover:bg-white/[0.05] hover:text-gray-100'
                   }`}
                 >
-                  {ts}
+                  {slot.display}
                 </button>
               ))}
             </div>
@@ -578,7 +610,7 @@ const TradingPlan = () => {
               <>
                 <Clock size={16} />
                 <span className="font-semibold">HISTORICAL</span>
-                <span className="text-xs opacity-80">• {getDisplayDateTime() || planData?.timestamp || 'Last available'}</span>
+                <span className="text-xs opacity-80">• {planData?.formingBarTimestamp || planData?.timestamp || 'Last available'}</span>
               </>
             )}
           </div>
@@ -603,7 +635,11 @@ const TradingPlan = () => {
 
         {selectedDate && (
           <div className="text-xs text-gray-500 sm:ml-auto">
-            {availableTimestamps.length} timestamps available
+            {isLoadingTimestamps
+              ? 'Loading timestamps...'
+              : availableTimestamps.length > 0
+                ? `${availableTimestamps.length} timestamps available`
+                : 'No data for this date'}
           </div>
         )}
       </motion.div>
@@ -619,7 +655,7 @@ const TradingPlan = () => {
       {planData && <MarketDataRow data={planData.marketData} />}
 
       {/* Trade Activity Logs */}
-      {planData && <TradeLogsSection logs={planData.tradeLogs} />}
+      {planData && <TradeLogsSection logs={planData.tradeLogs} formingBarTimestamp={planData.formingBarTimestamp} />}
 
       {/* Trading Plan Diagram */}
       {planData && <TradingPlanDiagram data={planData} />}
@@ -728,7 +764,7 @@ const MarketDataRow = ({ data }) => {
 };
 
 // Trade Activity Logs Component
-const TradeLogsSection = ({ logs }) => (
+const TradeLogsSection = ({ logs, formingBarTimestamp }) => (
   <motion.div
     initial={{ opacity: 0, y: 20 }}
     animate={{ opacity: 1, y: 0 }}
@@ -753,7 +789,12 @@ const TradeLogsSection = ({ logs }) => (
           </div>
         ))
       ) : (
-        <div className="p-4 text-center text-gray-500 text-sm">No trade activity logs</div>
+        <div className="p-4 text-center text-gray-500 text-sm">
+          No crossings detected yet
+          {formingBarTimestamp && (
+            <span className="block text-xs text-gray-600 mt-1">Monitoring: {formingBarTimestamp}</span>
+          )}
+        </div>
       )}
     </div>
   </motion.div>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 
 const CalculationTooltip = ({ field, row }) => {
   const getInputs = () => {
@@ -169,7 +169,7 @@ const CalculatedValuesTable = ({ data, isLoading, symbol, timeframe, formatTimes
           <tbody>
             {data.map((row, index) => (
               <tr
-                key={row.timestamp_uk || row.timestamp || index}
+                key={row.timestamp_broker || row.timestamp || index}
                 className={`border-b border-white/[0.04] last:border-0 hover:bg-white/[0.03] transition-colors ${
                   index === 0 && row._isNew ? 'bg-accent/[0.05]' : ''
                 }`}

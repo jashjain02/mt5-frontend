@@ -366,7 +366,8 @@ export default function Execute() {
   const connectWs = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
     setWsStatus('connecting');
-    const ws = new WebSocket(WS_URL);
+    const token = api.getToken();
+    const ws = new WebSocket(WS_URL + (token ? `?token=${token}` : ''));
 
     ws.onopen = () => {
       setWsStatus('connected');

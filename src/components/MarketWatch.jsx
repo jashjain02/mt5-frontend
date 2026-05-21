@@ -288,7 +288,8 @@ const MarketWatch = () => {
     setError('');
 
     try {
-      const wsUrl = `${WS_BASE_URL}/market-watch/ws`;
+      const wsToken = localStorage.getItem('access_token');
+      const wsUrl = `${WS_BASE_URL}/market-watch/ws${wsToken ? `?token=${wsToken}` : ''}`;
       console.log('Connecting to WebSocket:', wsUrl);
       const ws = new WebSocket(wsUrl);
 
@@ -450,7 +451,7 @@ const MarketWatch = () => {
 
   // Memoized utility functions for performance
   const formatPrice = useCallback((price, digits = 5) => {
-    if (!price) return '-';
+    if (price === null || price === undefined || price === 0) return '-';
     return price.toFixed(digits);
   }, []);
 

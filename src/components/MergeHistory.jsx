@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { GitMerge, RefreshCw, ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react';
 import api from '../services/api';
@@ -234,7 +234,7 @@ export default function MergeHistory() {
                   >
                     {/* Bar Timestamp */}
                     <td className="px-4 py-2.5 font-mono text-xs text-gray-300 whitespace-nowrap">
-                      {row.new_bar_timestamp_uk ?? '—'}
+                      {row.new_bar_timestamp_broker ?? '—'}
                     </td>
 
                     {/* Status badge */}

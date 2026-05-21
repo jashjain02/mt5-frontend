@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Trading Plan Data Transformer
  * Transforms calculated values API response to Trading Plan format
  */
@@ -113,8 +113,8 @@ export const transformApiDataToTradingPlan = (apiRecord) => {
   return {
     symbol: 'XAUUSD',
     timeframe: apiRecord.timeframe || 'H1',
-    timestamp: apiRecord.timestamp_broker_formatted || apiRecord.timestamp_uk_formatted || '',
-    date: (apiRecord.timestamp_broker_formatted || apiRecord.timestamp_uk_formatted || '').split(' ')[0],
+    timestamp: apiRecord.timestamp_broker_formatted || apiRecord.timestamp_broker_formatted || '',
+    date: (apiRecord.timestamp_broker_formatted || apiRecord.timestamp_broker_formatted || '').split(' ')[0],
 
     // Merge state — set by the backend when two consecutive bars were merged
     merged:      apiRecord.merged      || false,
