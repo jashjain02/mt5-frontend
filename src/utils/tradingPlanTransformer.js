@@ -78,10 +78,10 @@ export const transformApiDataToTradingPlan = (apiRecord) => {
   const fcAbove = apiRecord.falling_channel_above || {};
   const fcBelow = apiRecord.falling_channel_below || {};
 
-  // RC rows: above (null for 23.60% and 423.60%), middle (all 9), below (null for 23.60% and 423.60%)
+  // RC rows: above (null for 423.60%), middle (all 9), below (null for 423.60%)
   const rcRows = [
     {
-      values: [rcAbove['14.60%'], null, rcAbove['38.20%'], rcAbove['61.80%'], rcAbove['100.00%'], rcAbove['138.20%'], rcAbove['161.80%'], rcAbove['261.80%'], null],
+      values: [rcAbove['14.60%'], rcAbove['23.60%'], rcAbove['38.20%'], rcAbove['61.80%'], rcAbove['100.00%'], rcAbove['138.20%'], rcAbove['161.80%'], rcAbove['261.80%'], null],
       highlighted: [false, false, false, false, false, false, false, false, false]
     },
     {
@@ -89,15 +89,15 @@ export const transformApiDataToTradingPlan = (apiRecord) => {
       highlighted: [false, false, false, false, false, false, false, false, false]
     },
     {
-      values: [rcBelow['14.60%'], null, rcBelow['38.20%'], rcBelow['61.80%'], rcBelow['100.00%'], rcBelow['138.20%'], rcBelow['161.80%'], rcBelow['261.80%'], null],
+      values: [rcBelow['14.60%'], rcBelow['23.60%'], rcBelow['38.20%'], rcBelow['61.80%'], rcBelow['100.00%'], rcBelow['138.20%'], rcBelow['161.80%'], rcBelow['261.80%'], null],
       highlighted: [false, false, false, false, false, false, false, false, false]
     }
   ];
 
-  // FC rows: above (null for 23.60% and 423.60%), middle (all 9), below (null for 23.60% and 423.60%)
+  // FC rows: above (null for 423.60%), middle (all 9), below (null for 423.60%)
   const fcRows = [
     {
-      values: [fcAbove['14.60%'], null, fcAbove['38.20%'], fcAbove['61.80%'], fcAbove['100.00%'], fcAbove['138.20%'], fcAbove['161.80%'], fcAbove['261.80%'], null],
+      values: [fcAbove['14.60%'], fcAbove['23.60%'], fcAbove['38.20%'], fcAbove['61.80%'], fcAbove['100.00%'], fcAbove['138.20%'], fcAbove['161.80%'], fcAbove['261.80%'], null],
       highlighted: [false, false, false, false, false, false, false, false, false]
     },
     {
@@ -105,7 +105,7 @@ export const transformApiDataToTradingPlan = (apiRecord) => {
       highlighted: [false, false, false, false, false, false, false, false, false]
     },
     {
-      values: [fcBelow['14.60%'], null, fcBelow['38.20%'], fcBelow['61.80%'], fcBelow['100.00%'], fcBelow['138.20%'], fcBelow['161.80%'], fcBelow['261.80%'], null],
+      values: [fcBelow['14.60%'], fcBelow['23.60%'], fcBelow['38.20%'], fcBelow['61.80%'], fcBelow['100.00%'], fcBelow['138.20%'], fcBelow['161.80%'], fcBelow['261.80%'], null],
       highlighted: [false, false, false, false, false, false, false, false, false]
     }
   ];
