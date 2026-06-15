@@ -5,8 +5,6 @@ import {
   History,
   Wallet,
   ArrowLeftRight,
-  PieChart,
-  Settings,
   LogOut,
   Menu,
   X,
@@ -102,10 +100,6 @@ const TAB_SUBTITLES = {
   'merge-history': 'Merged trade history records',
   'merge-rules':   'Configure merge rule logic',
   'merge-testing': 'Test merge rule configurations',
-  wallet:          'Manage your digital assets',
-  transactions:    'View your transaction history',
-  analytics:       'Track your portfolio performance',
-  settings:        'Customize your preferences',
   backtest:        'Test trading strategies with historical market data',
   execute:         'Run live strategies on your MT5 account',
   journal:         'Complete trade history and performance analytics',
@@ -339,10 +333,6 @@ const Dashboard = ({ onLogout }) => {
     { id: 'backtest',      label: 'Backtest',      icon: TestTube2 },
     { id: 'execute',       label: 'Execute',       icon: Zap },
     { id: 'journal',       label: 'Trade Journal', icon: BookOpen },
-    { id: 'wallet',        label: 'Wallet',        icon: Wallet },
-    { id: 'transactions',  label: 'Transactions', icon: ArrowLeftRight },
-    { id: 'analytics',     label: 'Analytics',    icon: PieChart },
-    { id: 'settings',      label: 'Settings',     icon: Settings },
   ];
 
   const renderContent = () => {
@@ -357,10 +347,6 @@ const Dashboard = ({ onLogout }) => {
       case 'backtest':      return <Backtest />;
       case 'execute':       return <Execute />;
       case 'journal':       return <TradeJournal />;
-      case 'wallet':        return <PlaceholderContent title="Wallet" description="Manage your digital assets" />;
-      case 'transactions':  return <PlaceholderContent title="Transactions" description="View your transaction history" />;
-      case 'analytics':     return <PlaceholderContent title="Analytics" description="Track your portfolio performance" />;
-      case 'settings':      return <PlaceholderContent title="Settings" description="Customize your preferences" />;
       default:              return <DashboardContent />;
     }
   };
@@ -1170,25 +1156,6 @@ const HistoricalDataContent = () => {
         onClose={() => setShowTicksModal(false)}
         initialSymbol={selectedSymbol}
       />
-    </div>
-  );
-};
-
-/* ─────────────────────────────────────────────────────────
-   Placeholder Content
-───────────────────────────────────────────────────────── */
-const PlaceholderContent = ({ title, description }) => {
-  return (
-    <div className="space-y-6">
-      <div>
-        <p className="text-text-muted text-sm">{description}</p>
-      </div>
-      <div className="card-dark p-8 flex flex-col items-center justify-center min-h-[300px]">
-        <div className="w-16 h-16 bg-white/[0.05] border border-white/[0.08] rounded-2xl flex items-center justify-center mb-4">
-          <span className="text-3xl">🚧</span>
-        </div>
-        <p className="text-text-muted text-sm text-center">This section is under development.</p>
-      </div>
     </div>
   );
 };
