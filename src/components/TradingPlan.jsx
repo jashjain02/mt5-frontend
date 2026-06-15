@@ -1,6 +1,6 @@
 ﻿import { useState, useEffect, useRef, useCallback } from 'react';
-import { motion } from 'framer-motion';
-import { Calendar, AlertCircle, ChevronDown, Clock, FileText, Wifi, WifiOff, RefreshCw } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Calendar, AlertCircle, ChevronDown, ChevronUp, Clock, FileText, Wifi, WifiOff, RefreshCw } from 'lucide-react';
 import api from '../services/api';
 import { transformApiDataToTradingPlan } from '../utils/tradingPlanTransformer';
 
@@ -764,41 +764,57 @@ const MarketDataRow = ({ data }) => {
 };
 
 // Trade Activity Logs Component
-const TradeLogsSection = ({ logs, formingBarTimestamp }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    className="rounded-2xl overflow-hidden"
-    style={glassStyleShared}
-  >
-    <div className="p-4 flex items-center gap-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-      <FileText size={18} className="text-gray-500" />
-      <h3 className="font-semibold text-gray-100">Trade Activity Logs</h3>
-    </div>
-    <div className="max-h-[200px] overflow-y-auto">
-      {logs && logs.length > 0 ? (
-        logs.map((log, idx) => (
-          <div key={idx} className="flex items-start gap-3 px-4 py-2.5 last:border-0 hover:bg-white/[0.03] transition-colors" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-            <span className="text-xs font-mono text-gray-500 whitespace-nowrap mt-0.5">{log.time}</span>
-            <span className={`text-xs font-semibold px-2 py-0.5 rounded shrink-0 ${
-              log.type === 'CROSS_ABOVE' || log.type === 'BUY' ? 'bg-emerald-500/15 text-emerald-400' :
-              log.type === 'CROSS_BELOW' || log.type === 'SELL' ? 'bg-red-500/15 text-red-400' :
-              'bg-white/[0.06] text-gray-400'
-            }`}>{log.type}</span>
-            <span className="text-sm text-gray-300">{log.message}</span>
-          </div>
-        ))
-      ) : (
-        <div className="p-4 text-center text-gray-500 text-sm">
-          No crossings detected yet
-          {formingBarTimestamp && (
-            <span className="block text-xs text-gray-600 mt-1">Monitoring: {formingBarTimestamp}</span>
-          )}
+const TradeLogsSection = ({ logs, formingBarTimestamp }) => {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="rounded-2xl overflow-hidden"
+      style={glassStyleShared}
+    >
+      <button onClick={() => setOpen(v => !v)}
+        className="w-full p-4 flex items-center justify-between gap-2 hover:bg-white/[0.02] transition-colors"
+        style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+        <div className="flex items-center gap-2">
+          <FileText size={18} className="text-gray-500" />
+          <h3 className="font-semibold text-gray-100">Trade Activity Logs</h3>
         </div>
-      )}
-    </div>
-  </motion.div>
-);
+        {open ? <ChevronUp size={16} className="text-gray-500" /> : <ChevronDown size={16} className="text-gray-500" />}
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.18 }} className="overflow-hidden">
+            <div className="max-h-[200px] overflow-y-auto">
+              {logs && logs.length > 0 ? (
+                logs.map((log, idx) => (
+                  <div key={idx} className="flex items-start gap-3 px-4 py-2.5 last:border-0 hover:bg-white/[0.03] transition-colors" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    <span className="text-xs font-mono text-gray-500 whitespace-nowrap mt-0.5">{log.time}</span>
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded shrink-0 ${
+                      log.type === 'CROSS_ABOVE' || log.type === 'BUY' ? 'bg-emerald-500/15 text-emerald-400' :
+                      log.type === 'CROSS_BELOW' || log.type === 'SELL' ? 'bg-red-500/15 text-red-400' :
+                      'bg-white/[0.06] text-gray-400'
+                    }`}>{log.type}</span>
+                    <span className="text-sm text-gray-300">{log.message}</span>
+                  </div>
+                ))
+              ) : (
+                <div className="p-4 text-center text-gray-500 text-sm">
+                  No crossings detected yet
+                  {formingBarTimestamp && (
+                    <span className="block text-xs text-gray-600 mt-1">Monitoring: {formingBarTimestamp}</span>
+                  )}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+};
 
 /**
  * Calculate which row index should be highlighted for each column
