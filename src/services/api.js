@@ -405,7 +405,7 @@ class ApiService {
   // ── Merge Rules CRUD ──────────────────────────────────────────────────────
 
   async getMergeRules() {
-    return this.request('/merge-rules', { method: 'GET' });
+    return this.request('/merge-rules/', { method: 'GET' });
   }
 
   async getMergeRule(id) {
