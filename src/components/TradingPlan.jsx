@@ -39,6 +39,7 @@ const TradingPlan = () => {
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
   const lastFormingBarRef = useRef({ timeframe: null, timestamp: null });  // Track {timeframe, timestamp} — timeframe-aware to avoid false isNewBar on switch
+  const isLiveModeRef = useRef(false);
 
   const timeframes = ['M5', 'M15', 'M30', 'H1', 'H4', 'H5', '5H+', 'D1', 'W1', 'MN1'];
 
@@ -324,45 +325,42 @@ const TradingPlan = () => {
 
         // Only update the displayed plan when in live mode
         // Don't overwrite historical data the user is viewing
-        setIsLiveMode((prev) => {
-          if (prev) {
-            setPlanData((currentPlan) => {
-              if (!currentPlan) return currentPlan;
+        if (isLiveModeRef.current) {
+          setPlanData((currentPlan) => {
+            if (!currentPlan) return currentPlan;
 
-              if (isNewBar) {
-                // New bar just opened — the forming bar has no RC/FC yet.
-                // Keep the existing RC/FC levels (they're still valid for crossing detection)
-                // and only reset market data + trade logs. loadLatestPlan() runs in parallel
-                // and will overwrite with the completed bar's values once the DB is ready.
-                return {
-                  ...currentPlan,
-                  marketData: transformedData.marketData,
-                  tradeLogs: [],
-                };
-              }
-
-              // Forming bar only updates live price fields — RC/FC always come from the
-              // previous completed bar loaded via loadLatestPlan, never from the WS.
-              const md = transformedData.marketData;
+            if (isNewBar) {
+              // New bar just opened — the forming bar has no RC/FC yet.
+              // Keep the existing RC/FC levels (they're still valid for crossing detection)
+              // and only reset market data + trade logs. loadLatestPlan() runs in parallel
+              // and will overwrite with the completed bar's values once the DB is ready.
               return {
                 ...currentPlan,
-                marketData: {
-                  ...currentPlan.marketData,
-                  open:   md?.open   ?? currentPlan.marketData?.open,
-                  high:   md?.high   ?? currentPlan.marketData?.high,
-                  low:    md?.low    ?? currentPlan.marketData?.low,
-                  last:   md?.last   ?? currentPlan.marketData?.last,
-                  close:  null,   // forming bar has no close yet
-                  bid:    md?.bid    ?? currentPlan.marketData?.bid,
-                  ask:    md?.ask    ?? currentPlan.marketData?.ask,
-                  spread: md?.spread ?? currentPlan.marketData?.spread,
-                },
+                marketData: transformedData.marketData,
+                tradeLogs: [],
               };
-            });
-          }
-          // Never auto-switch to live mode from WebSocket; preserve current mode
-          return prev;
-        });
+            }
+
+            // Forming bar only updates live price fields — RC/FC always come from the
+            // previous completed bar loaded via loadLatestPlan, never from the WS.
+            const md = transformedData.marketData;
+            return {
+              ...currentPlan,
+              marketData: {
+                ...currentPlan.marketData,
+                open:   md?.open   ?? currentPlan.marketData?.open,
+                high:   md?.high   ?? currentPlan.marketData?.high,
+                low:    md?.low    ?? currentPlan.marketData?.low,
+                last:   md?.last   ?? currentPlan.marketData?.last,
+                close:  null,   // forming bar has no close yet
+                bid:    md?.bid    ?? currentPlan.marketData?.bid,
+                ask:    md?.ask    ?? currentPlan.marketData?.ask,
+                spread: md?.spread ?? currentPlan.marketData?.spread,
+                d_pat:  md?.d_pat  ?? currentPlan.marketData?.d_pat,
+              },
+            };
+          });
+        }
 
         // New bar: reload from API to get the just-closed bar's computed RC/FC values.
         // Retry after 15s in case the backend takes a moment to finish computation.
@@ -372,36 +370,33 @@ const TradingPlan = () => {
         }
       } else if (message.type === 'trade_log') {
         // Only append live trade logs when in live mode
-        setIsLiveMode((prev) => {
-          if (prev) {
-            setPlanData((prevPlan) => {
-              if (!prevPlan) return prevPlan;
-              const newLogs = message.logs || [];
+        if (isLiveModeRef.current) {
+          setPlanData((prevPlan) => {
+            if (!prevPlan) return prevPlan;
+            const newLogs = message.logs || [];
 
-              // Check if logs belong to the current forming bar
-              const messageBarTs = message.bar_timestamp_broker;
-              const currentBarTs = prevPlan.formingBarTimestamp;
+            // Check if logs belong to the current forming bar
+            const messageBarTs = message.bar_timestamp_broker;
+            const currentBarTs = prevPlan.formingBarTimestamp;
 
-              // If bar timestamp changed, clear old logs and start fresh
-              let existingLogs = prevPlan.tradeLogs || [];
-              if (messageBarTs && currentBarTs && messageBarTs !== currentBarTs) {
-                existingLogs = [];
-              }
+            // If bar timestamp changed, clear old logs and start fresh
+            let existingLogs = prevPlan.tradeLogs || [];
+            if (messageBarTs && currentBarTs && messageBarTs !== currentBarTs) {
+              existingLogs = [];
+            }
 
-              // Deduplicate by creating a unique key from time + type + message
-              const existingKeys = new Set(
-                existingLogs.map((log) => `${log.time}|${log.type}|${log.message}`)
-              );
-              const uniqueNewLogs = newLogs.filter(
-                (log) => !existingKeys.has(`${log.time}|${log.type}|${log.message}`)
-              );
+            // Deduplicate by creating a unique key from time + type + message
+            const existingKeys = new Set(
+              existingLogs.map((log) => `${log.time}|${log.type}|${log.message}`)
+            );
+            const uniqueNewLogs = newLogs.filter(
+              (log) => !existingKeys.has(`${log.time}|${log.type}|${log.message}`)
+            );
 
-              if (uniqueNewLogs.length === 0 && existingLogs.length === (prevPlan.tradeLogs || []).length) return prevPlan;
-              return { ...prevPlan, tradeLogs: [...existingLogs, ...uniqueNewLogs] };
-            });
-          }
-          return prev;
-        });
+            if (uniqueNewLogs.length === 0 && existingLogs.length === (prevPlan.tradeLogs || []).length) return prevPlan;
+            return { ...prevPlan, tradeLogs: [...existingLogs, ...uniqueNewLogs] };
+          });
+        }
       } else if (message.type === 'calculated_values_subscribed') {
         console.log('Subscribed to calculated values:', message);
       }
@@ -418,7 +413,7 @@ const TradingPlan = () => {
       wsRef.current = null;
 
       // Auto-reconnect if live mode is still enabled
-      if (isLiveMode) {
+      if (isLiveModeRef.current) {
         reconnectTimeoutRef.current = setTimeout(() => {
           connectWebSocket();
         }, 5000);
@@ -426,7 +421,7 @@ const TradingPlan = () => {
     };
 
     wsRef.current = ws;
-  }, [selectedTimeframe, isLiveMode]);
+  }, [selectedTimeframe]);
 
   const disconnectWebSocket = useCallback(() => {
     if (reconnectTimeoutRef.current) {
@@ -475,6 +470,12 @@ const TradingPlan = () => {
     }, 60_000);
     return () => clearInterval(intervalId);
   }, [isLiveMode, selectedTimeframe]);
+
+  // Keep isLiveModeRef in sync so WebSocket callbacks can read the current value
+  // without stale closures and without calling setState as a side effect.
+  useEffect(() => {
+    isLiveModeRef.current = isLiveMode;
+  }, [isLiveMode]);
 
   return (
     <div className="space-y-5">
