@@ -1,6 +1,6 @@
 ﻿import { useState, useEffect, useRef, useCallback } from 'react';
-import { motion } from 'framer-motion';
-import { Calendar, AlertCircle, ChevronDown, Clock, FileText, Wifi, WifiOff, RefreshCw } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Calendar, AlertCircle, ChevronDown, ChevronUp, Clock, FileText, Wifi, WifiOff, RefreshCw } from 'lucide-react';
 import api from '../services/api';
 import { transformApiDataToTradingPlan } from '../utils/tradingPlanTransformer';
 
@@ -39,6 +39,7 @@ const TradingPlan = () => {
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
   const lastFormingBarRef = useRef({ timeframe: null, timestamp: null });  // Track {timeframe, timestamp} — timeframe-aware to avoid false isNewBar on switch
+  const isLiveModeRef = useRef(false);
 
   const timeframes = ['M5', 'M15', 'M30', 'H1', 'H4', 'H5', '5H+', 'D1', 'W1', 'MN1'];
 
@@ -324,45 +325,42 @@ const TradingPlan = () => {
 
         // Only update the displayed plan when in live mode
         // Don't overwrite historical data the user is viewing
-        setIsLiveMode((prev) => {
-          if (prev) {
-            setPlanData((currentPlan) => {
-              if (!currentPlan) return currentPlan;
+        if (isLiveModeRef.current) {
+          setPlanData((currentPlan) => {
+            if (!currentPlan) return currentPlan;
 
-              if (isNewBar) {
-                // New bar just opened — the forming bar has no RC/FC yet.
-                // Keep the existing RC/FC levels (they're still valid for crossing detection)
-                // and only reset market data + trade logs. loadLatestPlan() runs in parallel
-                // and will overwrite with the completed bar's values once the DB is ready.
-                return {
-                  ...currentPlan,
-                  marketData: transformedData.marketData,
-                  tradeLogs: [],
-                };
-              }
-
-              // Forming bar only updates live price fields — RC/FC always come from the
-              // previous completed bar loaded via loadLatestPlan, never from the WS.
-              const md = transformedData.marketData;
+            if (isNewBar) {
+              // New bar just opened — the forming bar has no RC/FC yet.
+              // Keep the existing RC/FC levels (they're still valid for crossing detection)
+              // and only reset market data + trade logs. loadLatestPlan() runs in parallel
+              // and will overwrite with the completed bar's values once the DB is ready.
               return {
                 ...currentPlan,
-                marketData: {
-                  ...currentPlan.marketData,
-                  open:   md?.open   ?? currentPlan.marketData?.open,
-                  high:   md?.high   ?? currentPlan.marketData?.high,
-                  low:    md?.low    ?? currentPlan.marketData?.low,
-                  last:   md?.last   ?? currentPlan.marketData?.last,
-                  close:  null,   // forming bar has no close yet
-                  bid:    md?.bid    ?? currentPlan.marketData?.bid,
-                  ask:    md?.ask    ?? currentPlan.marketData?.ask,
-                  spread: md?.spread ?? currentPlan.marketData?.spread,
-                },
+                marketData: transformedData.marketData,
+                tradeLogs: [],
               };
-            });
-          }
-          // Never auto-switch to live mode from WebSocket; preserve current mode
-          return prev;
-        });
+            }
+
+            // Forming bar only updates live price fields — RC/FC always come from the
+            // previous completed bar loaded via loadLatestPlan, never from the WS.
+            const md = transformedData.marketData;
+            return {
+              ...currentPlan,
+              marketData: {
+                ...currentPlan.marketData,
+                open:   md?.open   ?? currentPlan.marketData?.open,
+                high:   md?.high   ?? currentPlan.marketData?.high,
+                low:    md?.low    ?? currentPlan.marketData?.low,
+                last:   md?.last   ?? currentPlan.marketData?.last,
+                close:  null,   // forming bar has no close yet
+                bid:    md?.bid    ?? currentPlan.marketData?.bid,
+                ask:    md?.ask    ?? currentPlan.marketData?.ask,
+                spread: md?.spread ?? currentPlan.marketData?.spread,
+                d_pat:  md?.d_pat  ?? currentPlan.marketData?.d_pat,
+              },
+            };
+          });
+        }
 
         // New bar: reload from API to get the just-closed bar's computed RC/FC values.
         // Retry after 15s in case the backend takes a moment to finish computation.
@@ -372,36 +370,33 @@ const TradingPlan = () => {
         }
       } else if (message.type === 'trade_log') {
         // Only append live trade logs when in live mode
-        setIsLiveMode((prev) => {
-          if (prev) {
-            setPlanData((prevPlan) => {
-              if (!prevPlan) return prevPlan;
-              const newLogs = message.logs || [];
+        if (isLiveModeRef.current) {
+          setPlanData((prevPlan) => {
+            if (!prevPlan) return prevPlan;
+            const newLogs = message.logs || [];
 
-              // Check if logs belong to the current forming bar
-              const messageBarTs = message.bar_timestamp_broker;
-              const currentBarTs = prevPlan.formingBarTimestamp;
+            // Check if logs belong to the current forming bar
+            const messageBarTs = message.bar_timestamp_broker;
+            const currentBarTs = prevPlan.formingBarTimestamp;
 
-              // If bar timestamp changed, clear old logs and start fresh
-              let existingLogs = prevPlan.tradeLogs || [];
-              if (messageBarTs && currentBarTs && messageBarTs !== currentBarTs) {
-                existingLogs = [];
-              }
+            // If bar timestamp changed, clear old logs and start fresh
+            let existingLogs = prevPlan.tradeLogs || [];
+            if (messageBarTs && currentBarTs && messageBarTs !== currentBarTs) {
+              existingLogs = [];
+            }
 
-              // Deduplicate by creating a unique key from time + type + message
-              const existingKeys = new Set(
-                existingLogs.map((log) => `${log.time}|${log.type}|${log.message}`)
-              );
-              const uniqueNewLogs = newLogs.filter(
-                (log) => !existingKeys.has(`${log.time}|${log.type}|${log.message}`)
-              );
+            // Deduplicate by creating a unique key from time + type + message
+            const existingKeys = new Set(
+              existingLogs.map((log) => `${log.time}|${log.type}|${log.message}`)
+            );
+            const uniqueNewLogs = newLogs.filter(
+              (log) => !existingKeys.has(`${log.time}|${log.type}|${log.message}`)
+            );
 
-              if (uniqueNewLogs.length === 0 && existingLogs.length === (prevPlan.tradeLogs || []).length) return prevPlan;
-              return { ...prevPlan, tradeLogs: [...existingLogs, ...uniqueNewLogs] };
-            });
-          }
-          return prev;
-        });
+            if (uniqueNewLogs.length === 0 && existingLogs.length === (prevPlan.tradeLogs || []).length) return prevPlan;
+            return { ...prevPlan, tradeLogs: [...existingLogs, ...uniqueNewLogs] };
+          });
+        }
       } else if (message.type === 'calculated_values_subscribed') {
         console.log('Subscribed to calculated values:', message);
       }
@@ -418,7 +413,7 @@ const TradingPlan = () => {
       wsRef.current = null;
 
       // Auto-reconnect if live mode is still enabled
-      if (isLiveMode) {
+      if (isLiveModeRef.current) {
         reconnectTimeoutRef.current = setTimeout(() => {
           connectWebSocket();
         }, 5000);
@@ -426,7 +421,7 @@ const TradingPlan = () => {
     };
 
     wsRef.current = ws;
-  }, [selectedTimeframe, isLiveMode]);
+  }, [selectedTimeframe]);
 
   const disconnectWebSocket = useCallback(() => {
     if (reconnectTimeoutRef.current) {
@@ -475,6 +470,12 @@ const TradingPlan = () => {
     }, 60_000);
     return () => clearInterval(intervalId);
   }, [isLiveMode, selectedTimeframe]);
+
+  // Keep isLiveModeRef in sync so WebSocket callbacks can read the current value
+  // without stale closures and without calling setState as a side effect.
+  useEffect(() => {
+    isLiveModeRef.current = isLiveMode;
+  }, [isLiveMode]);
 
   return (
     <div className="space-y-5">
@@ -764,41 +765,57 @@ const MarketDataRow = ({ data }) => {
 };
 
 // Trade Activity Logs Component
-const TradeLogsSection = ({ logs, formingBarTimestamp }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    className="rounded-2xl overflow-hidden"
-    style={glassStyleShared}
-  >
-    <div className="p-4 flex items-center gap-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-      <FileText size={18} className="text-gray-500" />
-      <h3 className="font-semibold text-gray-100">Trade Activity Logs</h3>
-    </div>
-    <div className="max-h-[200px] overflow-y-auto">
-      {logs && logs.length > 0 ? (
-        logs.map((log, idx) => (
-          <div key={idx} className="flex items-start gap-3 px-4 py-2.5 last:border-0 hover:bg-white/[0.03] transition-colors" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-            <span className="text-xs font-mono text-gray-500 whitespace-nowrap mt-0.5">{log.time}</span>
-            <span className={`text-xs font-semibold px-2 py-0.5 rounded shrink-0 ${
-              log.type === 'CROSS_ABOVE' || log.type === 'BUY' ? 'bg-emerald-500/15 text-emerald-400' :
-              log.type === 'CROSS_BELOW' || log.type === 'SELL' ? 'bg-red-500/15 text-red-400' :
-              'bg-white/[0.06] text-gray-400'
-            }`}>{log.type}</span>
-            <span className="text-sm text-gray-300">{log.message}</span>
-          </div>
-        ))
-      ) : (
-        <div className="p-4 text-center text-gray-500 text-sm">
-          No crossings detected yet
-          {formingBarTimestamp && (
-            <span className="block text-xs text-gray-600 mt-1">Monitoring: {formingBarTimestamp}</span>
-          )}
+const TradeLogsSection = ({ logs, formingBarTimestamp }) => {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="rounded-2xl overflow-hidden"
+      style={glassStyleShared}
+    >
+      <button onClick={() => setOpen(v => !v)}
+        className="w-full p-4 flex items-center justify-between gap-2 hover:bg-white/[0.02] transition-colors"
+        style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+        <div className="flex items-center gap-2">
+          <FileText size={18} className="text-gray-500" />
+          <h3 className="font-semibold text-gray-100">Trade Activity Logs</h3>
         </div>
-      )}
-    </div>
-  </motion.div>
-);
+        {open ? <ChevronUp size={16} className="text-gray-500" /> : <ChevronDown size={16} className="text-gray-500" />}
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.18 }} className="overflow-hidden">
+            <div className="max-h-[200px] overflow-y-auto">
+              {logs && logs.length > 0 ? (
+                logs.map((log, idx) => (
+                  <div key={idx} className="flex items-start gap-3 px-4 py-2.5 last:border-0 hover:bg-white/[0.03] transition-colors" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    <span className="text-xs font-mono text-gray-500 whitespace-nowrap mt-0.5">{log.time}</span>
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded shrink-0 ${
+                      log.type === 'CROSS_ABOVE' || log.type === 'BUY' ? 'bg-emerald-500/15 text-emerald-400' :
+                      log.type === 'CROSS_BELOW' || log.type === 'SELL' ? 'bg-red-500/15 text-red-400' :
+                      'bg-white/[0.06] text-gray-400'
+                    }`}>{log.type}</span>
+                    <span className="text-sm text-gray-300">{log.message}</span>
+                  </div>
+                ))
+              ) : (
+                <div className="p-4 text-center text-gray-500 text-sm">
+                  No crossings detected yet
+                  {formingBarTimestamp && (
+                    <span className="block text-xs text-gray-600 mt-1">Monitoring: {formingBarTimestamp}</span>
+                  )}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+};
 
 /**
  * Calculate which row index should be highlighted for each column

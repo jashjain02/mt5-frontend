@@ -412,7 +412,7 @@ class ApiService {
   // ── Merge Rules CRUD ──────────────────────────────────────────────────────
 
   async getMergeRules() {
-    return this.request('/merge-rules', { method: 'GET' });
+    return this.request('/merge-rules/', { method: 'GET' });
   }
 
   async getMergeRule(id) {
@@ -445,7 +445,7 @@ class ApiService {
     // items: [{id, rule_order}, ...]
     return this.request('/merge-rules/reorder', {
       method: 'POST',
-      body: JSON.stringify({ items }),
+      body: JSON.stringify(items),
     });
   }
 
