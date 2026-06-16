@@ -438,7 +438,7 @@ class ApiService {
     // items: [{id, rule_order}, ...]
     return this.request('/merge-rules/reorder', {
       method: 'POST',
-      body: JSON.stringify({ items }),
+      body: JSON.stringify(items),
     });
   }
 
