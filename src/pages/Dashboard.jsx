@@ -16,6 +16,7 @@ import {
   Activity,
   FileSpreadsheet,
   GitMerge,
+  GitCompare,
   FlaskConical,
   SlidersHorizontal,
   Bell,
@@ -39,6 +40,7 @@ import TicksModal from '../components/TicksModal';
 import CalculatedValuesTable from '../components/CalculatedValuesTable';
 import TradingPlan from '../components/TradingPlan';
 import MergeHistory from '../components/MergeHistory';
+import MergedData from '../components/MergedData';
 import MergeTesting from '../components/MergeTesting';
 import MergeRules from '../components/MergeRules';
 import Backtest from '../components/Backtest';
@@ -98,6 +100,7 @@ const TAB_SUBTITLES = {
   'trading-plan':  'Daily analysis and Fibonacci levels',
   historical:      'OHLCV data with calculated values',
   'merge-history': 'Merged trade history records',
+  'merged-data':   'Side-by-side raw vs recomputed values for merged bars',
   'merge-rules':   'Configure merge rule logic',
   'merge-testing': 'Test merge rule configurations',
   backtest:        'Test trading strategies with historical market data',
@@ -327,7 +330,8 @@ const Dashboard = ({ onLogout }) => {
     { id: 'market-watch',  label: 'Market Watch', icon: TrendingUp },
     { id: 'trading-plan',  label: 'Trading Plan', icon: FileSpreadsheet },
     { id: 'historical',    label: 'Data',          icon: History },
-    { id: 'merge-history', label: 'Merge History',icon: GitMerge },
+    { id: 'merge-history', label: 'Merge History', icon: GitMerge },
+    { id: 'merged-data',   label: 'Merged Data',  icon: GitCompare },
     { id: 'merge-rules',   label: 'Merge Rules',  icon: SlidersHorizontal },
     { id: 'merge-testing', label: 'Merge Testing',icon: FlaskConical },
     { id: 'backtest',      label: 'Backtest',      icon: TestTube2 },
@@ -342,6 +346,7 @@ const Dashboard = ({ onLogout }) => {
       case 'trading-plan':  return <TradingPlan />;
       case 'historical':    return <HistoricalDataContent />;
       case 'merge-history': return <MergeHistory />;
+      case 'merged-data':   return <MergedData />;
       case 'merge-rules':   return <MergeRules />;
       case 'merge-testing': return <MergeTesting />;
       case 'backtest':      return <Backtest />;

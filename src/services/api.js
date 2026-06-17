@@ -361,6 +361,13 @@ class ApiService {
     });
   }
 
+  async getMergedBars(symbol, timeframe, options = {}) {
+    const params = new URLSearchParams({ symbol, timeframe, limit: options.limit || 50, offset: options.offset || 0 });
+    if (options.startDate) params.append('start_date', options.startDate);
+    if (options.endDate)   params.append('end_date',   options.endDate);
+    return this.request(`/merged-bars?${params.toString()}`, { method: 'GET' });
+  }
+
   // ── Merge Testing endpoints ──────────────────────────────────────────────
 
   async runMergeAnalysis(payload) {
