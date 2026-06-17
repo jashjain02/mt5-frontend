@@ -226,7 +226,7 @@ function ExpandedDetail({ row, showAdvanced, onToggleAdvanced, onViewTradingPlan
   );
 }
 
-function adaptMergedRowForTradingPlan(row, timeframe) {
+function adaptMergedRowForTradingPlan(row, timeframe, symbol) {
   const m = row.merged || {};
   const ref = m.ref || {};
   return {
@@ -253,22 +253,28 @@ function adaptMergedRowForTradingPlan(row, timeframe) {
     buffer:    m.buffer,
     atr:       m.atr,
     merged:      true,
-    merged_ohlc: { high: row.merged_high, low: row.merged_low, close: row.merged_close },
+    merged_ohlc: {
+      high:           row.merged_high,
+      low:            row.merged_low,
+      close:          row.merged_close,
+      current_bar_ts: row.timestamp,
+    },
+    symbol:    symbol || 'XAUUSD',
     timeframe,
   };
 }
 
-function MergedTradingPlanModal({ row, timeframe, onClose }) {
+function MergedTradingPlanModal({ row, timeframe, symbol, onClose }) {
   const planData = useMemo(() => {
     if (!row) return null;
-    const adapted = adaptMergedRowForTradingPlan(row, timeframe);
+    const adapted = adaptMergedRowForTradingPlan(row, timeframe, symbol);
     const plan = transformApiDataToTradingPlan(adapted);
     if (plan) {
       plan.formingBarTimestamp = row.timestamp;
       plan.timeframe = timeframe;
     }
     return plan;
-  }, [row, timeframe]);
+  }, [row, timeframe, symbol]);
 
   return (
     <AnimatePresence>
@@ -515,6 +521,7 @@ export default function MergedData() {
       <MergedTradingPlanModal
         row={tradingPlanRow}
         timeframe={timeframe}
+        symbol={symbol}
         onClose={() => setTradingPlanRow(null)}
       />
     </motion.div>
