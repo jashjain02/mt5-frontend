@@ -850,10 +850,8 @@ export default function MergeTesting() {
                               onClick={e => {
                                 e.stopPropagation();
                                 setTradingPlan({
-                                  ts: row.bar_end_uk,
-                                  mergedOhlc: row.is_merged
-                                    ? { high: row.high, low: row.low, close: row.close }
-                                    : null,
+                                  ts: row.plan_bar_ts,
+                                  mergedOhlc: { high: row.high, low: row.low, close: row.close },
                                 });
                               }}
                               style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.30)', color: '#10b981' }}
@@ -879,17 +877,6 @@ export default function MergeTesting() {
                                   : v
                                     ? <span className="text-emerald-400 font-bold">✓</span>
                                     : <span className="text-red-400">✗</span>;
-                                let runH = -Infinity, runL = Infinity;
-                                const accOHLC = row.bar_details.map((bd, i) => {
-                                  runH = Math.max(runH, bd.high ?? -Infinity);
-                                  runL = Math.min(runL, bd.low  ??  Infinity);
-                                  return {
-                                    open:  i === 0 ? bd.open : row.bar_details[0].open,
-                                    high:  runH,
-                                    low:   runL,
-                                    close: bd.close,
-                                  };
-                                });
                                 return (
                                 <div className="overflow-x-auto">
                                 <table className="w-full text-xs border-collapse">
@@ -920,7 +907,6 @@ export default function MergeTesting() {
                                       const nhOk  = bd.new_high_cleared ?? bd.new_low_cleared;
                                       const tvOk  = bd.tvhs_cleared ?? bd.tvls_cleared;
                                       const fired = bd.fired;
-                                      const acc   = accOHLC[bi];
                                       return (
                                         <tr key={bi} style={{ borderBottom: '1px solid rgba(99,102,241,0.10)', background: fired ? 'rgba(59,130,246,0.10)' : 'transparent' }}>
                                           <td className="pr-3 py-1 font-mono whitespace-nowrap text-gray-400">{bd.ts ? String(bd.ts).slice(0, 16).replace('T', ' ') : '—'}</td>
@@ -930,10 +916,10 @@ export default function MergeTesting() {
                                           {showMutp && <td className="pr-3 py-1 font-mono text-blue-300">{n(bd.mutp)}</td>}
                                           <td className="pr-3 py-1 font-mono text-red-400">{n(bd.dtp)}</td>
                                           {showMdtp && <td className="pr-3 py-1 font-mono text-red-300">{n(bd.mdtp)}</td>}
-                                          <td className="pr-3 py-1 font-mono text-gray-500">{n(acc?.open)}</td>
-                                          <td className="pr-3 py-1 font-mono text-emerald-400 font-medium">{n(acc?.high)}</td>
-                                          <td className="pr-3 py-1 font-mono text-red-400 font-medium">{n(acc?.low)}</td>
-                                          <td className="pr-3 py-1 font-mono text-gray-300">{n(acc?.close)}</td>
+                                          <td className="pr-3 py-1 font-mono text-gray-500">{n(bd.open)}</td>
+                                          <td className="pr-3 py-1 font-mono text-emerald-400 font-medium">{n(bd.high)}</td>
+                                          <td className="pr-3 py-1 font-mono text-red-400 font-medium">{n(bd.low)}</td>
+                                          <td className="pr-3 py-1 font-mono text-gray-300">{n(bd.close)}</td>
                                           <td className="pr-3 py-1 font-mono text-gray-400">{n(bd.new_high_target ?? bd.new_low_target)}</td>
                                           <td className="pr-3 py-1 text-center">{chk(nhOk)}</td>
                                           <td className="pr-3 py-1 font-mono text-indigo-400">{bd.utp_trigger || bd.dtp_trigger || '—'}</td>
@@ -942,7 +928,7 @@ export default function MergeTesting() {
                                           <td className="pr-3 py-1 text-center">{fired ? <span className="px-1.5 py-0.5 rounded text-blue-300 font-bold" style={{ background: 'rgba(59,130,246,0.18)' }}>C{bd.rule_no}</span> : <span className="text-gray-600">—</span>}</td>
                                           <td className="pr-3 py-1">
                                             <button
-                                              onClick={() => setTradingPlan({ ts: bd.ts, mergedOhlc: null })}
+                                              onClick={() => setTradingPlan({ ts: bd.plan_bar_ts, mergedOhlc: { high: bd.high, low: bd.low, close: bd.close } })}
                                               style={{ background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.25)', color: '#10b981' }}
                                               className="rounded px-1.5 py-0.5 text-[10px] font-medium hover:bg-emerald-500/20 transition-colors"
                                             >
