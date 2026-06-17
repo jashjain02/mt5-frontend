@@ -38,6 +38,7 @@ const TradingPlan = () => {
   const [isLoadingApi, setIsLoadingApi] = useState(false);
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
+  const latestPlanReloadTimerRef = useRef(null);
   const lastFormingBarRef = useRef({ timeframe: null, timestamp: null });  // Track {timeframe, timestamp} — timeframe-aware to avoid false isNewBar on switch
   const isLiveModeRef = useRef(false);
 
@@ -363,10 +364,16 @@ const TradingPlan = () => {
         }
 
         // New bar: reload from API to get the just-closed bar's computed RC/FC values.
-        // Retry after 15s in case the backend takes a moment to finish computation.
+        // A single 3-second delay lets the backend finish computing CV before the
+        // fetch, without scheduling a second speculative call 15 seconds later that
+        // would overlap with the 60-second periodic refresh and generate redundant
+        // API traffic on every bar boundary.
         if (isNewBar) {
-          loadLatestPlan();
-          setTimeout(loadLatestPlan, 15000);
+          if (latestPlanReloadTimerRef.current) clearTimeout(latestPlanReloadTimerRef.current);
+          latestPlanReloadTimerRef.current = setTimeout(() => {
+            loadLatestPlan();
+            latestPlanReloadTimerRef.current = null;
+          }, 3000);
         }
       } else if (message.type === 'trade_log') {
         // Only append live trade logs when in live mode
@@ -848,7 +855,7 @@ const calculateMiddleValueRows = (rows, numColumns) => {
 };
 
 // The spreadsheet-style diagram
-const TradingPlanDiagram = ({ data }) => {
+export const TradingPlanDiagram = ({ data }) => {
   const glassStyle = {
     background: 'rgba(255,255,255,0.04)',
     backdropFilter: 'blur(10px)',

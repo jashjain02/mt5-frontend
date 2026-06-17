@@ -1,7 +1,9 @@
-import { useState, Fragment } from 'react';
-import { motion } from 'framer-motion';
-import { GitCompare, RefreshCw, ChevronDown, ChevronUp, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useState, useMemo, Fragment } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { GitCompare, RefreshCw, ChevronDown, ChevronUp, AlertCircle, ChevronLeft, ChevronRight, BarChart2, X } from 'lucide-react';
 import api from '../services/api';
+import { TradingPlanDiagram } from './TradingPlan';
+import { transformApiDataToTradingPlan } from '../utils/tradingPlanTransformer';
 
 const TIMEFRAMES = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'H5', 'D1', 'W1', 'MN1'];
 const RC_FC_LEVELS = ['14.60%', '23.60%', '38.20%', '61.80%', '100.00%', '138.20%', '161.80%', '261.80%', '423.60%'];
@@ -73,12 +75,21 @@ function CompareRow({ label, raw, merged, isText = false }) {
   );
 }
 
-function ExpandedDetail({ row, showAdvanced, onToggleAdvanced }) {
+function ExpandedDetail({ row, showAdvanced, onToggleAdvanced, onViewTradingPlan }) {
   const { raw, merged } = row;
   if (!merged) return null;
 
   return (
     <div style={{ background: 'rgba(0,0,0,0.20)', borderTop: '1px solid rgba(255,255,255,0.06)' }} className="px-4 py-4">
+      <div className="flex justify-end mb-3">
+        <button
+          onClick={onViewTradingPlan}
+          style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.30)', color: '#10b981' }}
+          className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium hover:bg-emerald-500/20 transition-colors"
+        >
+          <BarChart2 size={13} /> Trading Plan
+        </button>
+      </div>
       {/* Column headers shared */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         {/* OHLC + Indicators */}
@@ -215,6 +226,99 @@ function ExpandedDetail({ row, showAdvanced, onToggleAdvanced }) {
   );
 }
 
+function adaptMergedRowForTradingPlan(row, timeframe) {
+  const m = row.merged || {};
+  const ref = m.ref || {};
+  return {
+    rising_channel:        m.rc       || {},
+    falling_channel:       m.fc       || {},
+    rising_channel_above:  m.rc_above || {},
+    rising_channel_below:  m.rc_below || {},
+    falling_channel_above: m.fc_above || {},
+    falling_channel_below: m.fc_below || {},
+    reference_levels: {
+      bdpwdp_r1: ref['BDP-WDP R1'] ?? null,
+      bdpwdp_r2: ref['BDP-WDP R2'] ?? null,
+      col2_r1:   ref['Col2 R1']    ?? null,
+      col2_r2:   ref['Col2 R2']    ?? null,
+      col3_r1:   ref['Col3 R1']    ?? null,
+    },
+    high:      row.merged_high,
+    low:       row.merged_low,
+    close:     row.merged_close,
+    d_pat:     m.d_pat || row.d_pat,
+    jgd:       m.jgd,
+    jwd:       m.jwd,
+    abs_range: m.abs_range,
+    buffer:    m.buffer,
+    atr:       m.atr,
+    merged:      true,
+    merged_ohlc: { high: row.merged_high, low: row.merged_low, close: row.merged_close },
+    timeframe,
+  };
+}
+
+function MergedTradingPlanModal({ row, timeframe, onClose }) {
+  const planData = useMemo(() => {
+    if (!row) return null;
+    const adapted = adaptMergedRowForTradingPlan(row, timeframe);
+    const plan = transformApiDataToTradingPlan(adapted);
+    if (plan) {
+      plan.formingBarTimestamp = row.timestamp;
+      plan.timeframe = timeframe;
+    }
+    return plan;
+  }, [row, timeframe]);
+
+  return (
+    <AnimatePresence>
+      {row && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+            style={{ zIndex: 9998 }}
+            onClick={onClose}
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.96 }}
+            transition={{ duration: 0.18 }}
+            style={{
+              position: 'fixed', top: '50%', left: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: '92vw', maxHeight: '90vh',
+              zIndex: 9999,
+              background: 'rgba(13,17,23,0.98)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: '16px',
+              display: 'flex', flexDirection: 'column',
+              overflow: 'hidden',
+            }}
+          >
+            <div className="flex items-center justify-between px-5 py-3 border-b border-white/[0.06] shrink-0">
+              <span className="text-sm font-semibold text-text-base">
+                Merged Trading Plan — <span className="font-mono text-text-muted">{row.timestamp}</span>
+              </span>
+              <button onClick={onClose}
+                      className="text-text-muted hover:text-text-base transition-colors p-1 rounded-lg hover:bg-white/[0.06]">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="overflow-y-auto p-4">
+              {planData
+                ? <TradingPlanDiagram data={planData} />
+                : <p className="text-text-muted text-sm text-center py-10">No plan data available for this bar.</p>
+              }
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}
+
 export default function MergedData() {
   const [symbol, setSymbol]       = useState('XAUUSD');
   const [timeframe, setTimeframe] = useState('H1');
@@ -228,6 +332,7 @@ export default function MergedData() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [offset, setOffset]       = useState(0);
   const [hasMore, setHasMore]     = useState(false);
+  const [tradingPlanRow, setTradingPlanRow] = useState(null);
 
   const toggleExpand = (ts) => {
     setExpanded(prev => prev === ts ? null : ts);
@@ -369,7 +474,8 @@ export default function MergedData() {
                               <td colSpan={6} className="p-0">
                                 <ExpandedDetail row={row}
                                                 showAdvanced={showAdvanced}
-                                                onToggleAdvanced={() => setShowAdvanced(p => !p)} />
+                                                onToggleAdvanced={() => setShowAdvanced(p => !p)}
+                                                onViewTradingPlan={() => setTradingPlanRow(row)} />
                               </td>
                             </tr>
                           )}
@@ -408,6 +514,12 @@ export default function MergedData() {
           <p className="text-text-muted text-sm">Select filters and click Load to view merged bar comparisons.</p>
         </div>
       )}
+
+      <MergedTradingPlanModal
+        row={tradingPlanRow}
+        timeframe={timeframe}
+        onClose={() => setTradingPlanRow(null)}
+      />
     </motion.div>
   );
 }
