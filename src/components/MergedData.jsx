@@ -273,11 +273,10 @@ function MergedTradingPlanModal({ row, timeframe, onClose }) {
   return (
     <AnimatePresence>
       {row && (
-        <>
+        <div className="fixed inset-0 flex items-center justify-center" style={{ zIndex: 9999 }}>
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm"
-            style={{ zIndex: 9998 }}
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={onClose}
           />
           <motion.div
@@ -285,15 +284,13 @@ function MergedTradingPlanModal({ row, timeframe, onClose }) {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.96 }}
             transition={{ duration: 0.18 }}
+            className="relative flex flex-col"
             style={{
-              position: 'fixed', top: '50%', left: '50%',
-              transform: 'translate(-50%, -50%)',
-              width: '92vw', maxHeight: '90vh',
-              zIndex: 9999,
+              width: '92vw',
+              height: '90vh',
               background: 'rgba(13,17,23,0.98)',
               border: '1px solid rgba(255,255,255,0.08)',
               borderRadius: '16px',
-              display: 'flex', flexDirection: 'column',
               overflow: 'hidden',
             }}
           >
@@ -306,14 +303,14 @@ function MergedTradingPlanModal({ row, timeframe, onClose }) {
                 <X size={16} />
               </button>
             </div>
-            <div className="overflow-y-auto p-4">
+            <div className="overflow-y-auto p-4 flex-1">
               {planData
                 ? <TradingPlanDiagram data={planData} />
                 : <p className="text-text-muted text-sm text-center py-10">No plan data available for this bar.</p>
               }
             </div>
           </motion.div>
-        </>
+        </div>
       )}
     </AnimatePresence>
   );
