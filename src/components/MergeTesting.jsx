@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   FlaskConical, Play, Loader2, AlertCircle, ChevronDown,
-  History, ArrowLeft, Trash2, RefreshCw, CheckSquare, Square
+  History, ArrowLeft, Trash2, RefreshCw, CheckSquare, Square,
+  X, BarChart2,
 } from 'lucide-react';
 import api from '../services/api';
+import { TradingPlanDiagram } from './TradingPlan';
+import { transformApiDataToTradingPlan } from '../utils/tradingPlanTransformer';
 
 const TIMEFRAMES = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'H5', '5H+', 'D1', 'W1', 'MN1'];
 
@@ -56,6 +59,91 @@ const fmtNum = (v, decimals = 2) => {
 // ─── Views ───────────────────────────────────────────────────────────────────
 const VIEWS = { CONFIG: 'config', RESULTS: 'results', HISTORY: 'history' };
 
+function BatchTradingPlanModal({ ts, symbol, timeframe, mergedOhlc, onClose }) {
+  const [planData, setPlanData] = useState(null);
+  const [loading, setLoading]  = useState(false);
+  const [error, setError]      = useState(null);
+
+  useEffect(() => {
+    if (!ts) return;
+    setLoading(true);
+    setError(null);
+    setPlanData(null);
+    const tsNorm = String(ts).replace('T', ' ').slice(0, 19);
+    api.getCalculatedValues(symbol, timeframe, { startDate: tsNorm, endDate: tsNorm, limit: 1 })
+      .then(res => {
+        let record = res?.data?.[0];
+        if (!record) { setError('No data found for this bar.'); return; }
+        if (mergedOhlc) {
+          record = {
+            ...record,
+            high:  mergedOhlc.high,
+            low:   mergedOhlc.low,
+            close: mergedOhlc.close,
+            merged: true,
+            merged_ohlc: {
+              high: mergedOhlc.high,
+              low:  mergedOhlc.low,
+              close: mergedOhlc.close,
+              current_bar_ts: tsNorm,
+            },
+          };
+        }
+        setPlanData(transformApiDataToTradingPlan(record));
+      })
+      .catch(e => setError(e.message || 'Failed to load trading plan.'))
+      .finally(() => setLoading(false));
+  }, [ts, symbol, timeframe, mergedOhlc]);
+
+  return (
+    <AnimatePresence>
+      {ts && (
+        <div className="fixed inset-0 flex items-center justify-center" style={{ zIndex: 9999 }}>
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={onClose}
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.96 }}
+            transition={{ duration: 0.18 }}
+            className="relative flex flex-col"
+            style={{
+              width: '92vw', height: '90vh',
+              background: 'rgba(13,17,23,0.98)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: '16px', overflow: 'hidden',
+            }}
+          >
+            <div className="flex items-center justify-between px-5 py-3 border-b border-white/[0.06] shrink-0">
+              <span className="text-sm font-semibold text-text-base">
+                Trading Plan —{' '}
+                <span className="font-mono text-text-muted">
+                  {String(ts).replace('T', ' ').slice(0, 19)}
+                  {mergedOhlc ? ' (merged)' : ''}
+                </span>
+              </span>
+              <button
+                onClick={onClose}
+                className="text-text-muted hover:text-text-base transition-colors p-1 rounded-lg hover:bg-white/[0.06]"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="overflow-y-auto p-4 flex-1">
+              {loading  && <p className="text-gray-400 text-sm text-center py-10">Loading…</p>}
+              {error    && <p className="text-red-400 text-sm text-center py-10">{error}</p>}
+              {planData && <TradingPlanDiagram data={planData} />}
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 export default function MergeTesting() {
   const [view, setView] = useState(VIEWS.CONFIG);
 
@@ -85,6 +173,7 @@ export default function MergeTesting() {
   const [afterId,    setAfterId]    = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
   const [expandedRow, setExpandedRow] = useState(null); // row id that is expanded
+  const [tradingPlan, setTradingPlan] = useState(null); // { ts, mergedOhlc }
 
   // ── History state ──────────────────────────────────────────────────────────
   const [sessions,       setSessions]       = useState([]);
@@ -684,8 +773,7 @@ export default function MergeTesting() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)' }}>
-                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-400 whitespace-nowrap">Bar Start (MT5)</th>
-                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-400 whitespace-nowrap">Bar End (MT5)</th>
+                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-400 whitespace-nowrap">Bar (MT5)</th>
                       <th className="px-3 py-3 text-left text-xs font-semibold text-gray-400">Bars</th>
                       <th className="px-3 py-3 text-left text-xs font-semibold text-gray-400">Open</th>
                       <th className="px-3 py-3 text-left text-xs font-semibold text-gray-400">High</th>
@@ -696,6 +784,7 @@ export default function MergeTesting() {
                       <th className="px-3 py-3 text-left text-xs font-semibold text-gray-400">JWD</th>
                       <th className="px-3 py-3 text-left text-xs font-semibold text-gray-400 whitespace-nowrap">Cond #</th>
                       <th className="px-3 py-3 text-left text-xs font-semibold text-gray-400 whitespace-nowrap">Trigger</th>
+                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-400">Plan</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -717,10 +806,7 @@ export default function MergeTesting() {
                           onClick={() => setExpandedRow(isExpanded ? null : (row.id ?? idx))}
                         >
                           <td className="px-3 py-2 font-mono text-xs text-gray-300 whitespace-nowrap">
-                            {fmtTs(row.bar_start_uk)}
-                          </td>
-                          <td className="px-3 py-2 font-mono text-xs text-gray-300 whitespace-nowrap">
-                            {isMerged ? fmtTs(row.bar_end_uk) : <span className="text-gray-600">—</span>}
+                            {fmtTs(row.bar_end_uk)}
                           </td>
                           <td className="px-3 py-2 text-center">
                             {isMerged ? (
@@ -757,6 +843,23 @@ export default function MergeTesting() {
                                 {row.trigger_level_name} {row.trigger_direction === 'ABOVE' ? '↑' : '↓'}
                               </span>
                             ) : <span className="text-gray-600 text-xs">—</span>}
+                          </td>
+                          <td className="px-3 py-2">
+                            <button
+                              onClick={e => {
+                                e.stopPropagation();
+                                setTradingPlan({
+                                  ts: row.bar_end_uk,
+                                  mergedOhlc: row.is_merged
+                                    ? { high: row.high, low: row.low, close: row.close }
+                                    : null,
+                                });
+                              }}
+                              style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.30)', color: '#10b981' }}
+                              className="flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium hover:bg-emerald-500/20 transition-colors whitespace-nowrap"
+                            >
+                              <BarChart2 size={11} /> Plan
+                            </button>
                           </td>
                         </tr>
                         {isExpanded && Array.isArray(row.bar_details) && row.bar_details.length > 0 && (
@@ -808,6 +911,7 @@ export default function MergeTesting() {
                                       <th className="pr-3 py-1 font-semibold whitespace-nowrap">TVHS/TVLS</th>
                                       <th className="pr-3 py-1 font-semibold">TV ✓</th>
                                       <th className="pr-3 py-1 font-semibold">Fired?</th>
+                                      <th className="pr-3 py-1 font-semibold">Plan</th>
                                     </tr>
                                   </thead>
                                   <tbody>
@@ -835,6 +939,15 @@ export default function MergeTesting() {
                                           <td className="pr-3 py-1 font-mono text-gray-400">{n(bd.tvhs ?? bd.tvls)}</td>
                                           <td className="pr-3 py-1 text-center">{chk(tvOk)}</td>
                                           <td className="pr-3 py-1 text-center">{fired ? <span className="px-1.5 py-0.5 rounded text-blue-300 font-bold" style={{ background: 'rgba(59,130,246,0.18)' }}>C{bd.rule_no}</span> : <span className="text-gray-600">—</span>}</td>
+                                          <td className="pr-3 py-1">
+                                            <button
+                                              onClick={() => setTradingPlan({ ts: bd.ts, mergedOhlc: null })}
+                                              style={{ background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.25)', color: '#10b981' }}
+                                              className="rounded px-1.5 py-0.5 text-[10px] font-medium hover:bg-emerald-500/20 transition-colors"
+                                            >
+                                              Plan
+                                            </button>
+                                          </td>
                                         </tr>
                                       );
                                     })}
@@ -970,5 +1083,13 @@ export default function MergeTesting() {
         </motion.div>
       )}
     </div>
+
+    <BatchTradingPlanModal
+      ts={tradingPlan?.ts}
+      symbol={symbol}
+      timeframe={session?.timeframe || timeframe}
+      mergedOhlc={tradingPlan?.mergedOhlc}
+      onClose={() => setTradingPlan(null)}
+    />
   );
 }
