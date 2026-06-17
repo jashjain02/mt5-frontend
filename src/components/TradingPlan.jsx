@@ -1,6 +1,6 @@
 ﻿import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar, AlertCircle, ChevronDown, ChevronUp, Clock, FileText, Wifi, WifiOff, RefreshCw } from 'lucide-react';
+import { Calendar, AlertCircle, ChevronDown, ChevronUp, Clock, FileText, Wifi, WifiOff, RefreshCw, X } from 'lucide-react';
 import api from '../services/api';
 import { transformApiDataToTradingPlan } from '../utils/tradingPlanTransformer';
 
@@ -856,6 +856,24 @@ const calculateMiddleValueRows = (rows, numColumns) => {
 
 // The spreadsheet-style diagram
 export const TradingPlanDiagram = ({ data }) => {
+  const [mergedModal, setMergedModal] = useState({ open: false, bars: [], loading: false, error: null });
+
+  const handleOpenMergedModal = async () => {
+    const barTs = data.merged_ohlc?.current_bar_ts;
+    if (!barTs) return;
+    setMergedModal({ open: true, bars: [], loading: true, error: null });
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/merge-analysis/constituent-bars?symbol=${encodeURIComponent(data.symbol)}&timeframe=${encodeURIComponent(data.timeframe)}&bar_ts=${encodeURIComponent(barTs)}`
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      setMergedModal({ open: true, bars: json.bars || [], loading: false, error: null });
+    } catch {
+      setMergedModal({ open: true, bars: [], loading: false, error: 'Failed to load constituent bars' });
+    }
+  };
+
   const glassStyle = {
     background: 'rgba(255,255,255,0.04)',
     backdropFilter: 'blur(10px)',
@@ -904,6 +922,7 @@ export const TradingPlanDiagram = ({ data }) => {
   };
 
   return (
+    <>
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
@@ -938,9 +957,10 @@ export const TradingPlanDiagram = ({ data }) => {
                       <span
                         title={
                           data.merged_ohlc
-                            ? `Merged candle  H: ${formatPrice(data.merged_ohlc.high)}  L: ${formatPrice(data.merged_ohlc.low)}  C: ${formatPrice(data.merged_ohlc.close)}`
-                            : 'This bar was merged with the previous bar'
+                            ? `Merged candle  H: ${formatPrice(data.merged_ohlc.high)}  L: ${formatPrice(data.merged_ohlc.low)}  C: ${formatPrice(data.merged_ohlc.close)}  — Click to see all merged bars`
+                            : 'This bar was merged with the previous bar — click to see details'
                         }
+                        onClick={(e) => { e.stopPropagation(); handleOpenMergedModal(); }}
                         style={{
                           background: '#7c3aed',
                           color: '#fff',
@@ -950,6 +970,7 @@ export const TradingPlanDiagram = ({ data }) => {
                           padding: '2px 7px',
                           borderRadius: '4px',
                           whiteSpace: 'nowrap',
+                          cursor: 'pointer',
                         }}
                       >
                         ⛓ MERGED
@@ -1125,6 +1146,140 @@ export const TradingPlanDiagram = ({ data }) => {
         </div>
       </div>
     </motion.div>
+
+    {/* ── Merged bar constituent modal ──────────────────────────────────── */}
+    <AnimatePresence>
+      {mergedModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setMergedModal(m => ({ ...m, open: false }))}
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            className="relative w-full max-w-4xl max-h-[80vh] overflow-y-auto rounded-xl"
+            style={{ background: '#1a1528', border: '1px solid rgba(124,58,237,0.35)', boxShadow: '0 25px 60px rgba(0,0,0,0.6)' }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid rgba(124,58,237,0.2)' }}>
+              <div>
+                <h3 className="text-sm font-bold text-violet-300">⛓ Merged Bar Breakdown</h3>
+                {!mergedModal.loading && !mergedModal.error && (
+                  <p className="text-xs text-gray-500 mt-0.5">{mergedModal.bars.length} bars merged together</p>
+                )}
+              </div>
+              <button
+                onClick={() => setMergedModal(m => ({ ...m, open: false }))}
+                className="p-1.5 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-5">
+              {mergedModal.loading && (
+                <div className="flex items-center justify-center py-10 text-gray-400 text-sm">
+                  Loading constituent bars…
+                </div>
+              )}
+              {mergedModal.error && (
+                <div className="flex items-center justify-center py-10 text-red-400 text-sm">
+                  {mergedModal.error}
+                </div>
+              )}
+              {!mergedModal.loading && !mergedModal.error && mergedModal.bars.length > 0 && (() => {
+                const bars = mergedModal.bars;
+                const mergedHigh = Math.max(...bars.map(b => b.high ?? -Infinity));
+                const mergedLow  = Math.min(...bars.map(b => b.low  ??  Infinity));
+                let runH = -Infinity, runL = Infinity;
+                const acc = bars.map(b => {
+                  runH = Math.max(runH, b.high ?? -Infinity);
+                  runL = Math.min(runL, b.low  ??  Infinity);
+                  return { high: runH, low: runL, close: b.close };
+                });
+                const n = (v) => v != null ? v.toFixed(2) : '—';
+                return (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs font-mono" style={{ borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '1px solid rgba(124,58,237,0.25)' }}>
+                          {['Time', 'D_Pat', 'Open', 'High', 'Low', 'Close', 'JGD', 'JWD', 'Acc.H', 'Acc.L', 'Acc.C'].map(h => (
+                            <th key={h} className="text-left py-2 pr-4 text-gray-500 font-semibold whitespace-nowrap">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {bars.map((bar, i) => {
+                          const isHighBar = bar.high === mergedHigh;
+                          const isLowBar  = bar.low  === mergedLow;
+                          const isLastBar = i === bars.length - 1;
+                          return (
+                            <tr key={bar.ts} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                              <td className="py-2 pr-4 text-gray-400 whitespace-nowrap">
+                                {bar.ts ? bar.ts.slice(11, 16) : '—'}
+                              </td>
+                              <td className="py-2 pr-4 text-violet-400">{bar.d_pat ?? '—'}</td>
+                              <td className="py-2 pr-4 text-gray-400">{n(bar.open)}</td>
+                              <td className="py-2 pr-4 font-bold rounded"
+                                style={isHighBar
+                                  ? { color: '#4ade80', background: 'rgba(74,222,128,0.12)', padding: '2px 8px' }
+                                  : { color: '#6ee7b7' }}>
+                                {n(bar.high)}
+                              </td>
+                              <td className="py-2 pr-4 font-bold rounded"
+                                style={isLowBar
+                                  ? { color: '#f87171', background: 'rgba(248,113,113,0.12)', padding: '2px 8px' }
+                                  : { color: '#fca5a5' }}>
+                                {n(bar.low)}
+                              </td>
+                              <td className="py-2 pr-4 font-bold rounded"
+                                style={isLastBar
+                                  ? { color: '#a78bfa', background: 'rgba(167,139,250,0.14)', padding: '2px 8px' }
+                                  : { color: '#d1d5db' }}>
+                                {n(bar.close)}
+                              </td>
+                              <td className="py-2 pr-4 text-blue-400">{n(bar.jgd)}</td>
+                              <td className="py-2 pr-4 text-red-400">{n(bar.jwd)}</td>
+                              <td className="py-2 pr-4 text-emerald-500 font-semibold">{n(acc[i].high)}</td>
+                              <td className="py-2 pr-4 text-rose-500 font-semibold">{n(acc[i].low)}</td>
+                              <td className="py-2 pr-4 text-gray-300">{n(acc[i].close)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+
+                    {/* Legend */}
+                    <div className="flex items-center gap-5 mt-4 pt-3 text-xs" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                      <span className="flex items-center gap-1.5">
+                        <span style={{ display: 'inline-block', width: 10, height: 10, background: 'rgba(74,222,128,0.25)', border: '1px solid #4ade80', borderRadius: 2 }} />
+                        <span className="text-gray-400">Source of group High</span>
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span style={{ display: 'inline-block', width: 10, height: 10, background: 'rgba(248,113,113,0.25)', border: '1px solid #f87171', borderRadius: 2 }} />
+                        <span className="text-gray-400">Source of group Low</span>
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span style={{ display: 'inline-block', width: 10, height: 10, background: 'rgba(167,139,250,0.25)', border: '1px solid #a78bfa', borderRadius: 2 }} />
+                        <span className="text-gray-400">Source of Close (last bar)</span>
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+    </>
   );
 };
 
