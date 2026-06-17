@@ -409,6 +409,11 @@ class ApiService {
     });
   }
 
+  async getConstituentBars(symbol, timeframe, barTs) {
+    const params = new URLSearchParams({ symbol, timeframe, bar_ts: barTs });
+    return this.request(`/merge-analysis/constituent-bars?${params.toString()}`, { method: 'GET' });
+  }
+
   // ── Merge Rules CRUD ──────────────────────────────────────────────────────
 
   async getMergeRules() {

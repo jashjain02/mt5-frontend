@@ -863,11 +863,7 @@ export const TradingPlanDiagram = ({ data }) => {
     if (!barTs) return;
     setMergedModal({ open: true, bars: [], loading: true, error: null });
     try {
-      const res = await fetch(
-        `${API_BASE_URL}/merge-analysis/constituent-bars?symbol=${encodeURIComponent(data.symbol)}&timeframe=${encodeURIComponent(data.timeframe)}&bar_ts=${encodeURIComponent(barTs)}`
-      );
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
+      const json = await api.getConstituentBars(data.symbol, data.timeframe, barTs);
       setMergedModal({ open: true, bars: json.bars || [], loading: false, error: null });
     } catch {
       setMergedModal({ open: true, bars: [], loading: false, error: 'Failed to load constituent bars' });
