@@ -423,6 +423,7 @@ export default function MergeTesting() {
   // ─── Render ──────────────────────────────────────────────────────────────
 
   return (
+    <>
     <div className="p-4 md:p-6 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
@@ -1091,5 +1092,6 @@ export default function MergeTesting() {
       mergedOhlc={tradingPlan?.mergedOhlc}
       onClose={() => setTradingPlan(null)}
     />
+    </>
   );
 }
