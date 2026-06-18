@@ -881,9 +881,9 @@ export default function MergeTesting() {
                                 <span className="px-1.5 py-0.5 rounded text-xs font-bold text-blue-300" style={{ background: 'rgba(59,130,246,0.18)' }}>
                                   C{row.action_condition_no}
                                 </span>
-                                {row.matched_exc_order != null && (
+                                {row.matched_exc_name && (
                                   <span className="px-1 py-0 rounded text-[10px] font-semibold text-violet-300" style={{ background: 'rgba(139,92,246,0.18)' }}>
-                                    Exc {String.fromCharCode(64 + row.matched_exc_order)}
+                                    {row.matched_exc_name}
                                   </span>
                                 )}
                               </span>
