@@ -974,7 +974,7 @@ export default function MergeTesting() {
                                           <td className="pr-3 py-1 text-center">{fired ? <span className="px-1.5 py-0.5 rounded text-blue-300 font-bold" style={{ background: 'rgba(59,130,246,0.18)' }}>C{bd.rule_no}</span> : <span className="text-gray-600">—</span>}</td>
                                           <td className="pr-3 py-1">
                                             <button
-                                              onClick={() => setTradingPlan({ ts: bd.plan_bar_ts, mergedOhlc: null })}
+                                              onClick={() => setTradingPlan({ ts: bd.plan_bar_ts, mergedOhlc: null, prevRows: rows.slice(Math.max(0, idx - 3), idx) })}
                                               style={{ background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.25)', color: '#10b981' }}
                                               className="rounded px-1.5 py-0.5 text-[10px] font-medium hover:bg-emerald-500/20 transition-colors"
                                             >
