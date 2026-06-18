@@ -874,8 +874,18 @@ export default function MergeTesting() {
                           <td className="px-3 py-2 font-mono text-xs text-gray-300">{fmtNum(row.jwd)}</td>
                           <td className="px-3 py-2 text-center">
                             {hasAction ? (
-                              <span className="px-1.5 py-0.5 rounded text-xs font-bold text-blue-300" style={{ background: 'rgba(59,130,246,0.18)' }}>
-                                C{row.action_condition_no}
+                              <span
+                                title={row.matched_exc_desc || row.action_description || undefined}
+                                className="inline-flex flex-col items-center gap-0.5 cursor-default"
+                              >
+                                <span className="px-1.5 py-0.5 rounded text-xs font-bold text-blue-300" style={{ background: 'rgba(59,130,246,0.18)' }}>
+                                  C{row.action_condition_no}
+                                </span>
+                                {row.matched_exc_order != null && (
+                                  <span className="px-1 py-0 rounded text-[10px] font-semibold text-violet-300" style={{ background: 'rgba(139,92,246,0.18)' }}>
+                                    Exc {String.fromCharCode(64 + row.matched_exc_order)}
+                                  </span>
+                                )}
                               </span>
                             ) : <span className="text-gray-600 text-xs">—</span>}
                           </td>
