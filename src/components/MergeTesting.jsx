@@ -851,7 +851,9 @@ export default function MergeTesting() {
                                 e.stopPropagation();
                                 setTradingPlan({
                                   ts: row.plan_bar_ts,
-                                  mergedOhlc: { high: row.high, low: row.low, close: row.close },
+                                  mergedOhlc: row.is_merged
+                                    ? { high: row.high, low: row.low, close: row.close }
+                                    : null,
                                 });
                               }}
                               style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.30)', color: '#10b981' }}
