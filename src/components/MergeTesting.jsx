@@ -59,7 +59,7 @@ const fmtNum = (v, decimals = 2) => {
 // ─── Views ───────────────────────────────────────────────────────────────────
 const VIEWS = { CONFIG: 'config', RESULTS: 'results', HISTORY: 'history' };
 
-function BatchTradingPlanModal({ ts, symbol, timeframe, mergedOhlc, onClose }) {
+function BatchTradingPlanModal({ ts, symbol, timeframe, mergedOhlc, prevRows, onClose }) {
   const [planData, setPlanData] = useState(null);
   const [loading, setLoading]  = useState(false);
   const [error, setError]      = useState(null);
@@ -133,6 +133,49 @@ function BatchTradingPlanModal({ ts, symbol, timeframe, mergedOhlc, onClose }) {
               </button>
             </div>
             <div className="overflow-y-auto p-4 flex-1">
+              {prevRows?.length > 0 && (
+                <div className="mb-4 rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.03)' }}>
+                  <div className="px-3 py-2 text-xs font-semibold text-gray-400" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                    Preceding {prevRows.length} row{prevRows.length > 1 ? 's' : ''}
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)' }}>
+                          <th className="px-3 py-2 text-left font-semibold text-gray-500 whitespace-nowrap">Bar (MT5)</th>
+                          <th className="px-3 py-2 text-left font-semibold text-gray-500">Bars</th>
+                          <th className="px-3 py-2 text-left font-semibold text-gray-500">High</th>
+                          <th className="px-3 py-2 text-left font-semibold text-gray-500">Low</th>
+                          <th className="px-3 py-2 text-left font-semibold text-gray-500">Close</th>
+                          <th className="px-3 py-2 text-left font-semibold text-gray-500">Pat</th>
+                          <th className="px-3 py-2 text-left font-semibold text-gray-500">JGD</th>
+                          <th className="px-3 py-2 text-left font-semibold text-gray-500">JWD</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {prevRows.map((r, i) => (
+                          <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', background: r.is_merged ? 'rgba(251,191,36,0.06)' : 'transparent' }}>
+                            <td className="px-3 py-2 font-mono text-gray-300 whitespace-nowrap">{fmtTs(r.bar_end_uk)}</td>
+                            <td className="px-3 py-2 text-center">
+                              {r.is_merged
+                                ? <span className="px-1.5 py-0.5 rounded font-bold text-amber-300" style={{ background: 'rgba(245,158,11,0.18)' }}>{r.bars_count}</span>
+                                : <span className="text-gray-500">1</span>}
+                            </td>
+                            <td className="px-3 py-2 font-mono text-emerald-400">{fmtNum(r.high)}</td>
+                            <td className="px-3 py-2 font-mono text-red-400">{fmtNum(r.low)}</td>
+                            <td className="px-3 py-2 font-mono text-gray-200">{fmtNum(r.close)}</td>
+                            <td className="px-3 py-2">
+                              <span className="px-1.5 py-0.5 rounded font-mono text-gray-300" style={{ background: 'rgba(255,255,255,0.08)' }}>{r.d_pat ?? '—'}</span>
+                            </td>
+                            <td className="px-3 py-2 font-mono text-gray-300">{fmtNum(r.jgd)}</td>
+                            <td className="px-3 py-2 font-mono text-gray-300">{fmtNum(r.jwd)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
               {loading  && <p className="text-gray-400 text-sm text-center py-10">Loading…</p>}
               {error    && <p className="text-red-400 text-sm text-center py-10">{error}</p>}
               {planData && <TradingPlanDiagram data={planData} />}
@@ -854,6 +897,7 @@ export default function MergeTesting() {
                                   mergedOhlc: row.is_merged
                                     ? { high: row.high, low: row.low, close: row.close }
                                     : null,
+                                  prevRows: rows.slice(Math.max(0, idx - 3), idx),
                                 });
                               }}
                               style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.30)', color: '#10b981' }}
@@ -1078,6 +1122,7 @@ export default function MergeTesting() {
       symbol={symbol}
       timeframe={session?.timeframe || timeframe}
       mergedOhlc={tradingPlan?.mergedOhlc}
+      prevRows={tradingPlan?.prevRows}
       onClose={() => setTradingPlan(null)}
     />
     </>
