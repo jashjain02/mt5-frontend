@@ -59,7 +59,7 @@ const fmtNum = (v, decimals = 2) => {
 // ─── Views ───────────────────────────────────────────────────────────────────
 const VIEWS = { CONFIG: 'config', RESULTS: 'results', HISTORY: 'history' };
 
-function BatchTradingPlanModal({ ts, symbol, timeframe, mergedOhlc, prevRows, onClose }) {
+function BatchTradingPlanModal({ ts, symbol, timeframe, mergedOhlc, prevRows, currentRow, onClose }) {
   const [planData, setPlanData] = useState(null);
   const [loading, setLoading]  = useState(false);
   const [error, setError]      = useState(null);
@@ -136,7 +136,7 @@ function BatchTradingPlanModal({ ts, symbol, timeframe, mergedOhlc, prevRows, on
               {prevRows?.length > 0 && (
                 <div className="mb-4 rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.03)' }}>
                   <div className="px-3 py-2 text-xs font-semibold text-gray-400" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                    Preceding {prevRows.length} row{prevRows.length > 1 ? 's' : ''}
+                    Preceding {prevRows.length} row{prevRows.length > 1 ? 's' : ''}{currentRow ? ' + current' : ''}
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs">
@@ -171,6 +171,27 @@ function BatchTradingPlanModal({ ts, symbol, timeframe, mergedOhlc, prevRows, on
                             <td className="px-3 py-2 font-mono text-gray-300">{fmtNum(r.jwd)}</td>
                           </tr>
                         ))}
+                        {currentRow && (
+                          <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', background: 'rgba(99,102,241,0.10)' }}>
+                            <td className="px-3 py-2 font-mono text-indigo-300 whitespace-nowrap">
+                              {fmtTs(currentRow.bar_end_uk)}
+                              <span className="ml-1.5 text-[10px] font-semibold text-indigo-400 uppercase tracking-wide">current</span>
+                            </td>
+                            <td className="px-3 py-2 text-center">
+                              {currentRow.is_merged
+                                ? <span className="px-1.5 py-0.5 rounded font-bold text-amber-300" style={{ background: 'rgba(245,158,11,0.18)' }}>{currentRow.bars_count}</span>
+                                : <span className="text-gray-500">1</span>}
+                            </td>
+                            <td className="px-3 py-2 font-mono text-emerald-400">{fmtNum(currentRow.high)}</td>
+                            <td className="px-3 py-2 font-mono text-red-400">{fmtNum(currentRow.low)}</td>
+                            <td className="px-3 py-2 font-mono text-gray-200">{fmtNum(currentRow.close)}</td>
+                            <td className="px-3 py-2">
+                              <span className="px-1.5 py-0.5 rounded font-mono text-gray-300" style={{ background: 'rgba(255,255,255,0.08)' }}>{currentRow.d_pat ?? '—'}</span>
+                            </td>
+                            <td className="px-3 py-2 font-mono text-gray-300">{fmtNum(currentRow.jgd)}</td>
+                            <td className="px-3 py-2 font-mono text-gray-300">{fmtNum(currentRow.jwd)}</td>
+                          </tr>
+                        )}
                       </tbody>
                     </table>
                   </div>
@@ -217,7 +238,6 @@ export default function MergeTesting() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [expandedRow, setExpandedRow] = useState(null); // row id that is expanded
   const [tradingPlan, setTradingPlan] = useState(null); // { ts, mergedOhlc }
-  const [autoExtend,  setAutoExtend]  = useState(false);
 
   // ── History state ──────────────────────────────────────────────────────────
   const [sessions,       setSessions]       = useState([]);
@@ -361,7 +381,6 @@ export default function MergeTesting() {
           ? Array.from(selectedExceptions).sort((a, b) => a - b)
           : null,
         exception_close_filters:           activeFilters,
-        auto_extend_to_last_double_action: autoExtend,
       });
 
       if (!resp?.success) {
@@ -731,22 +750,6 @@ export default function MergeTesting() {
               )}
             </div>
 
-            {/* Auto-extend toggle */}
-            <div
-              className="flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer select-none"
-              style={autoExtend
-                ? { background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.25)' }
-                : { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
-              onClick={() => setAutoExtend(v => !v)}
-            >
-              <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${autoExtend ? 'bg-violet-600 border-violet-600' : 'border-white/20'}`}>
-                {autoExtend && <span className="text-white text-xs leading-none">✓</span>}
-              </div>
-              <span className={`text-xs font-medium ${autoExtend ? 'text-violet-300' : 'text-gray-400'}`}>
-                Auto-extend to last double action
-              </span>
-            </div>
-
             {/* Run button */}
             <button
               onClick={handleRun}
@@ -926,6 +929,7 @@ export default function MergeTesting() {
                                     ? { high: row.high, low: row.low, close: row.close }
                                     : null,
                                   prevRows: rows.slice(Math.max(0, idx - 3), idx),
+                                  currentRow: row,
                                 });
                               }}
                               style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.30)', color: '#10b981' }}
@@ -1002,7 +1006,7 @@ export default function MergeTesting() {
                                           <td className="pr-3 py-1 text-center">{fired ? <span className="px-1.5 py-0.5 rounded text-blue-300 font-bold" style={{ background: 'rgba(59,130,246,0.18)' }}>C{bd.rule_no}</span> : <span className="text-gray-600">—</span>}</td>
                                           <td className="pr-3 py-1">
                                             <button
-                                              onClick={() => setTradingPlan({ ts: bd.plan_bar_ts, mergedOhlc: null, prevRows: rows.slice(Math.max(0, idx - 3), idx) })}
+                                              onClick={() => setTradingPlan({ ts: bd.plan_bar_ts, mergedOhlc: null, prevRows: rows.slice(Math.max(0, idx - 3), idx), currentRow: rows[idx] })}
                                               style={{ background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.25)', color: '#10b981' }}
                                               className="rounded px-1.5 py-0.5 text-[10px] font-medium hover:bg-emerald-500/20 transition-colors"
                                             >
@@ -1151,6 +1155,7 @@ export default function MergeTesting() {
       timeframe={session?.timeframe || timeframe}
       mergedOhlc={tradingPlan?.mergedOhlc}
       prevRows={tradingPlan?.prevRows}
+      currentRow={tradingPlan?.currentRow}
       onClose={() => setTradingPlan(null)}
     />
     </>
