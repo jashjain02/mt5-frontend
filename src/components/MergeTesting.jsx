@@ -217,6 +217,7 @@ export default function MergeTesting() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [expandedRow, setExpandedRow] = useState(null); // row id that is expanded
   const [tradingPlan, setTradingPlan] = useState(null); // { ts, mergedOhlc }
+  const [autoExtend,  setAutoExtend]  = useState(false);
 
   // ── History state ──────────────────────────────────────────────────────────
   const [sessions,       setSessions]       = useState([]);
@@ -359,7 +360,8 @@ export default function MergeTesting() {
         selected_exceptions:     someExcluded
           ? Array.from(selectedExceptions).sort((a, b) => a - b)
           : null,
-        exception_close_filters: activeFilters,
+        exception_close_filters:           activeFilters,
+        auto_extend_to_last_double_action: autoExtend,
       });
 
       if (!resp?.success) {
@@ -729,6 +731,22 @@ export default function MergeTesting() {
               )}
             </div>
 
+            {/* Auto-extend toggle */}
+            <div
+              className="flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer select-none"
+              style={autoExtend
+                ? { background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.25)' }
+                : { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
+              onClick={() => setAutoExtend(v => !v)}
+            >
+              <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${autoExtend ? 'bg-violet-600 border-violet-600' : 'border-white/20'}`}>
+                {autoExtend && <span className="text-white text-xs leading-none">✓</span>}
+              </div>
+              <span className={`text-xs font-medium ${autoExtend ? 'text-violet-300' : 'text-gray-400'}`}>
+                Auto-extend to last double action
+              </span>
+            </div>
+
             {/* Run button */}
             <button
               onClick={handleRun}
@@ -845,9 +863,9 @@ export default function MergeTesting() {
                       return (
                         <React.Fragment key={row.id ?? idx}>
                         <tr
-                          className="transition-all cursor-pointer hover:brightness-110"
+                          className={`transition-all ${isMerged ? 'cursor-pointer hover:brightness-110' : 'cursor-default'}`}
                           style={{ background: rowBg, borderBottom: '1px solid rgba(255,255,255,0.05)' }}
-                          onClick={() => setExpandedRow(isExpanded ? null : (row.id ?? idx))}
+                          onClick={() => isMerged && setExpandedRow(isExpanded ? null : (row.id ?? idx))}
                         >
                           <td className="px-3 py-2 font-mono text-xs text-gray-300 whitespace-nowrap">
                             {fmtTs(row.bar_end_uk)}
@@ -917,7 +935,7 @@ export default function MergeTesting() {
                             </button>
                           </td>
                         </tr>
-                        {isExpanded && Array.isArray(row.bar_details) && row.bar_details.length > 0 && (
+                        {isExpanded && isMerged && Array.isArray(row.bar_details) && row.bar_details.length > 0 && (
                           <tr style={{ background: 'rgba(99,102,241,0.08)' }}>
                             <td colSpan={12} className="px-4 py-3" style={{ borderBottom: '1px solid rgba(99,102,241,0.15)' }}>
                               <div className="text-xs font-semibold text-indigo-300 mb-2">
