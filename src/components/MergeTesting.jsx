@@ -974,8 +974,7 @@ export default function MergeTesting() {
                                       <th className="pr-3 py-1 font-semibold whitespace-nowrap">NH/NL Target</th>
                                       <th className="pr-3 py-1 font-semibold">NH ✓</th>
                                       <th className="pr-3 py-1 font-semibold whitespace-nowrap">Station</th>
-                                      <th className="pr-3 py-1 font-semibold whitespace-nowrap">TVHS/TVLS</th>
-                                      <th className="pr-3 py-1 font-semibold">TV ✓</th>
+
                                       <th className="pr-3 py-1 font-semibold">Fired?</th>
                                       <th className="pr-3 py-1 font-semibold">Plan</th>
                                     </tr>
@@ -983,7 +982,7 @@ export default function MergeTesting() {
                                   <tbody>
                                     {row.bar_details.map((bd, bi) => {
                                       const nhOk  = bd.new_high_cleared ?? bd.new_low_cleared;
-                                      const tvOk  = bd.tvhs_cleared ?? bd.tvls_cleared;
+
                                       const fired = bd.fired;
                                       return (
                                         <tr key={bi} style={{ borderBottom: '1px solid rgba(99,102,241,0.10)', background: fired ? 'rgba(59,130,246,0.10)' : 'transparent' }}>
@@ -1001,8 +1000,7 @@ export default function MergeTesting() {
                                           <td className="pr-3 py-1 font-mono text-gray-400">{n(bd.new_high_target ?? bd.new_low_target)}</td>
                                           <td className="pr-3 py-1 text-center">{chk(nhOk)}</td>
                                           <td className="pr-3 py-1 font-mono text-indigo-400">{bd.utp_trigger || bd.dtp_trigger || '—'}</td>
-                                          <td className="pr-3 py-1 font-mono text-gray-400">{n(bd.tvhs ?? bd.tvls)}</td>
-                                          <td className="pr-3 py-1 text-center">{chk(tvOk)}</td>
+
                                           <td className="pr-3 py-1 text-center">{fired ? <span className="px-1.5 py-0.5 rounded text-blue-300 font-bold" style={{ background: 'rgba(59,130,246,0.18)' }}>C{bd.rule_no}</span> : <span className="text-gray-600">—</span>}</td>
                                           <td className="pr-3 py-1">
                                             <button
