@@ -9,6 +9,64 @@ import api from '../services/api';
 import { TradingPlanDiagram } from './TradingPlan';
 import { transformApiDataToTradingPlan } from '../utils/tradingPlanTransformer';
 
+// Builds the nested apiRecord shape transformApiDataToTradingPlan expects,
+// directly from a bar_detail entry (row.bar_details[0]) — which already
+// carries the correct, chain-anchor-recomputed plan-bar values. Avoids the
+// separate getCalculatedValues fetch, which returns the plan bar's own stale
+// individually-stored row whenever that bar was itself part of a merge chain.
+function buildApiRecordFromBarDetail(bd) {
+  if (!bd) return null;
+  return {
+    timestamp_broker_formatted: bd.plan_bar_ts,
+    high: null, low: null,
+    close: bd.prev_close,
+    open: null,
+    atr: null, range: null,
+    jgd: bd.prev_jgd,
+    jwd: bd.prev_jwd,
+    d_pat: bd.prev_d_pat,
+    abs_range: bd.prev_abs_range,
+    buffer: bd.prev_buffer,
+    rising_channel: {
+      '14.60%': bd.prev_rc_14_60, '23.60%': bd.prev_rc_23_60, '38.20%': bd.prev_rc_38_20,
+      '61.80%': bd.prev_rc_61_80, '100.00%': bd.prev_rc_100_00, '138.20%': bd.prev_rc_138_20,
+      '161.80%': bd.prev_rc_161_80, '261.80%': bd.prev_rc_261_80, '423.60%': bd.prev_rc_423_60,
+    },
+    falling_channel: {
+      '14.60%': bd.prev_fc_14_60, '23.60%': bd.prev_fc_23_60, '38.20%': bd.prev_fc_38_20,
+      '61.80%': bd.prev_fc_61_80, '100.00%': bd.prev_fc_100_00, '138.20%': bd.prev_fc_138_20,
+      '161.80%': bd.prev_fc_161_80, '261.80%': bd.prev_fc_261_80, '423.60%': bd.prev_fc_423_60,
+    },
+    rising_channel_above: {
+      '14.60%': bd.prev_rc_above_14_60, '23.60%': null, '38.20%': bd.prev_rc_above_38_20,
+      '61.80%': bd.prev_rc_above_61_80, '100.00%': bd.prev_rc_above_100_00, '138.20%': bd.prev_rc_above_138_20,
+      '161.80%': bd.prev_rc_above_161_80, '261.80%': bd.prev_rc_above_261_80,
+    },
+    rising_channel_below: {
+      '14.60%': bd.prev_rc_below_14_60, '23.60%': null, '38.20%': bd.prev_rc_below_38_20,
+      '61.80%': bd.prev_rc_below_61_80, '100.00%': bd.prev_rc_below_100_00, '138.20%': bd.prev_rc_below_138_20,
+      '161.80%': bd.prev_rc_below_161_80, '261.80%': bd.prev_rc_below_261_80,
+    },
+    falling_channel_above: {
+      '14.60%': bd.prev_fc_above_14_60, '23.60%': null, '38.20%': bd.prev_fc_above_38_20,
+      '61.80%': bd.prev_fc_above_61_80, '100.00%': bd.prev_fc_above_100_00, '138.20%': bd.prev_fc_above_138_20,
+      '161.80%': bd.prev_fc_above_161_80, '261.80%': bd.prev_fc_above_261_80,
+    },
+    falling_channel_below: {
+      '14.60%': bd.prev_fc_below_14_60, '23.60%': null, '38.20%': bd.prev_fc_below_38_20,
+      '61.80%': bd.prev_fc_below_61_80, '100.00%': bd.prev_fc_below_100_00, '138.20%': bd.prev_fc_below_138_20,
+      '161.80%': bd.prev_fc_below_161_80, '261.80%': bd.prev_fc_below_261_80,
+    },
+    reference_levels: {
+      bdpwdp_r1: bd.prev_ref_bdpwdp_r1,
+      bdpwdp_r2: bd.prev_ref_bdpwdp_r2,
+      col2_r1:   bd.prev_ref_col2_r1,
+      col2_r2:   bd.prev_ref_col2_r2,
+      col3_r1:   bd.prev_ref_col3_r1,
+    },
+  };
+}
+
 const TIMEFRAMES = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'H5', '5H+', 'D1', 'W1', 'MN1'];
 
 const RC_CLOSE_LEVELS = [
@@ -59,41 +117,39 @@ const fmtNum = (v, decimals = 2) => {
 // ─── Views ───────────────────────────────────────────────────────────────────
 const VIEWS = { CONFIG: 'config', RESULTS: 'results', HISTORY: 'history' };
 
-function BatchTradingPlanModal({ ts, symbol, timeframe, mergedOhlc, prevRows, currentRow, onClose }) {
+function BatchTradingPlanModal({ ts, symbol, timeframe, barDetail, prevRows, currentRow, onClose }) {
   const [planData, setPlanData] = useState(null);
   const [loading, setLoading]  = useState(false);
   const [error, setError]      = useState(null);
 
   useEffect(() => {
     if (!ts) return;
-    setLoading(true);
     setError(null);
     setPlanData(null);
+
+    // Preferred path: build straight from the backend's already-correct,
+    // chain-anchor-recomputed bar_detail snapshot — no fetch needed, and no
+    // risk of showing the plan bar's stale individually-stored row when it
+    // was itself part of a merge chain.
+    if (barDetail) {
+      setLoading(false);
+      setPlanData(transformApiDataToTradingPlan(buildApiRecordFromBarDetail(barDetail)));
+      return;
+    }
+
+    // Fallback only — shouldn't normally trigger, since every row carries
+    // bar_details. Falls back to the plan bar's own raw stored row.
+    setLoading(true);
     const tsNorm = String(ts).replace('T', ' ').slice(0, 19);
     api.getCalculatedValues(symbol, timeframe, { startDate: tsNorm, endDate: tsNorm, limit: 1 })
       .then(res => {
-        let record = res?.data?.[0];
+        const record = res?.data?.[0];
         if (!record) { setError('No data found for this bar.'); return; }
-        if (mergedOhlc) {
-          record = {
-            ...record,
-            high:  mergedOhlc.high,
-            low:   mergedOhlc.low,
-            close: mergedOhlc.close,
-            merged: true,
-            merged_ohlc: {
-              high: mergedOhlc.high,
-              low:  mergedOhlc.low,
-              close: mergedOhlc.close,
-              current_bar_ts: tsNorm,
-            },
-          };
-        }
         setPlanData(transformApiDataToTradingPlan(record));
       })
       .catch(e => setError(e.message || 'Failed to load trading plan.'))
       .finally(() => setLoading(false));
-  }, [ts, symbol, timeframe, mergedOhlc]);
+  }, [ts, symbol, timeframe, barDetail]);
 
   return (
     <AnimatePresence>
@@ -122,7 +178,7 @@ function BatchTradingPlanModal({ ts, symbol, timeframe, mergedOhlc, prevRows, cu
                 Trading Plan —{' '}
                 <span className="font-mono text-text-muted">
                   {String(ts).replace('T', ' ').slice(0, 19)}
-                  {mergedOhlc ? ' (merged)' : ''}
+                  {currentRow?.is_merged ? ' (merged)' : ''}
                 </span>
               </span>
               <button
@@ -237,7 +293,7 @@ export default function MergeTesting() {
   const [afterId,    setAfterId]    = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
   const [expandedRow, setExpandedRow] = useState(null); // row id that is expanded
-  const [tradingPlan, setTradingPlan] = useState(null); // { ts, mergedOhlc }
+  const [tradingPlan, setTradingPlan] = useState(null); // { ts, barDetail }
 
   // ── History state ──────────────────────────────────────────────────────────
   const [sessions,       setSessions]       = useState([]);
@@ -925,9 +981,7 @@ export default function MergeTesting() {
                                 e.stopPropagation();
                                 setTradingPlan({
                                   ts: row.plan_bar_ts,
-                                  mergedOhlc: row.is_merged
-                                    ? { high: row.high, low: row.low, close: row.close }
-                                    : null,
+                                  barDetail: row.bar_details?.[0] ?? null,
                                   prevRows: rows.slice(Math.max(0, idx - 3), idx),
                                   currentRow: row,
                                 });
@@ -1004,7 +1058,7 @@ export default function MergeTesting() {
                                           <td className="pr-3 py-1 text-center">{fired ? <span className="px-1.5 py-0.5 rounded text-blue-300 font-bold" style={{ background: 'rgba(59,130,246,0.18)' }}>C{bd.rule_no}</span> : <span className="text-gray-600">—</span>}</td>
                                           <td className="pr-3 py-1">
                                             <button
-                                              onClick={() => setTradingPlan({ ts: bd.plan_bar_ts, mergedOhlc: null, prevRows: rows.slice(Math.max(0, idx - 3), idx), currentRow: rows[idx] })}
+                                              onClick={() => setTradingPlan({ ts: bd.plan_bar_ts, barDetail: bd, prevRows: rows.slice(Math.max(0, idx - 3), idx), currentRow: rows[idx] })}
                                               style={{ background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.25)', color: '#10b981' }}
                                               className="rounded px-1.5 py-0.5 text-[10px] font-medium hover:bg-emerald-500/20 transition-colors"
                                             >
@@ -1151,7 +1205,7 @@ export default function MergeTesting() {
       ts={tradingPlan?.ts}
       symbol={symbol}
       timeframe={session?.timeframe || timeframe}
-      mergedOhlc={tradingPlan?.mergedOhlc}
+      barDetail={tradingPlan?.barDetail}
       prevRows={tradingPlan?.prevRows}
       currentRow={tradingPlan?.currentRow}
       onClose={() => setTradingPlan(null)}
