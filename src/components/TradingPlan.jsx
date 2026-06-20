@@ -834,21 +834,22 @@ const calculateMiddleValueRows = (rows, numColumns) => {
   const middleRows = [];
 
   for (let colIdx = 0; colIdx < numColumns; colIdx++) {
-    // Collect all non-null values and their row indices for this column
-    const valuesWithIndices = [];
-    rows.forEach((row, rowIdx) => {
-      if (row.values[colIdx] !== null && row.values[colIdx] !== undefined) {
-        valuesWithIndices.push({ rowIdx, value: row.values[colIdx] });
-      }
-    });
-
-    // Find the middle index
-    if (valuesWithIndices.length > 0) {
-      const middleIndex = Math.floor(valuesWithIndices.length / 2);
-      middleRows[colIdx] = valuesWithIndices[middleIndex].rowIdx;
-    } else {
-      middleRows[colIdx] = -1; // No values in this column
+    // Row 1 (index 1) is always the actual computed Fibonacci level — rows 0
+    // and 2 (above/below) are just auxiliary reference bands around it, and
+    // are absent for levels with no ABOVE/BELOW formula (e.g. 423.60%). It
+    // must always be the highlighted row when present, regardless of whether
+    // the above/below rows happen to have a value for this column.
+    const midVal = rows[1]?.values[colIdx];
+    if (midVal !== null && midVal !== undefined) {
+      middleRows[colIdx] = 1;
+      continue;
     }
+
+    // Mid row has no value for this column — fall back to whichever row does.
+    const fallbackIdx = rows.findIndex(
+      (row) => row.values[colIdx] !== null && row.values[colIdx] !== undefined
+    );
+    middleRows[colIdx] = fallbackIdx;
   }
 
   return middleRows;
