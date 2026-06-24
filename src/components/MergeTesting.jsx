@@ -904,7 +904,6 @@ export default function MergeTesting() {
                       <th className="px-3 py-3 text-left text-xs font-semibold text-gray-400">JGD</th>
                       <th className="px-3 py-3 text-left text-xs font-semibold text-gray-400">JWD</th>
                       <th className="px-3 py-3 text-left text-xs font-semibold text-gray-400 whitespace-nowrap">Cond #</th>
-                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-400 whitespace-nowrap">Trigger</th>
                       <th className="px-3 py-3 text-left text-xs font-semibold text-gray-400">Plan</th>
                     </tr>
                   </thead>
@@ -958,20 +957,11 @@ export default function MergeTesting() {
                                 <span className="px-1.5 py-0.5 rounded text-xs font-bold text-blue-300" style={{ background: 'rgba(59,130,246,0.18)' }}>
                                   C{row.action_condition_no}
                                 </span>
-                                {row.matched_exc_name && (
+                                {row.triggered_path && (
                                   <span className="px-1 py-0 rounded text-[10px] font-semibold text-violet-300" style={{ background: 'rgba(139,92,246,0.18)' }}>
-                                    {row.matched_exc_name}
+                                    {row.triggered_path}
                                   </span>
                                 )}
-                              </span>
-                            ) : <span className="text-gray-600 text-xs">—</span>}
-                          </td>
-                          <td className="px-3 py-2 whitespace-nowrap">
-                            {row.trigger_level_name ? (
-                              <span className={`text-xs font-mono ${
-                                row.trigger_direction === 'ABOVE' ? 'text-emerald-400' : 'text-red-400'
-                              }`}>
-                                {row.trigger_level_name} {row.trigger_direction === 'ABOVE' ? '↑' : '↓'}
                               </span>
                             ) : <span className="text-gray-600 text-xs">—</span>}
                           </td>
@@ -995,7 +985,7 @@ export default function MergeTesting() {
                         </tr>
                         {isExpanded && isMerged && Array.isArray(row.bar_details) && row.bar_details.length > 0 && (
                           <tr style={{ background: 'rgba(99,102,241,0.08)' }}>
-                            <td colSpan={12} className="px-4 py-3" style={{ borderBottom: '1px solid rgba(99,102,241,0.15)' }}>
+                            <td colSpan={11} className="px-4 py-3" style={{ borderBottom: '1px solid rgba(99,102,241,0.15)' }}>
                               <div className="text-xs font-semibold text-indigo-300 mb-2">
                                 Bar-by-bar eval ({row.bar_details.length} bar{row.bar_details.length > 1 ? 's' : ''})
                               </div>
@@ -1030,6 +1020,7 @@ export default function MergeTesting() {
                                       <th className="pr-3 py-1 font-semibold whitespace-nowrap">Station</th>
 
                                       <th className="pr-3 py-1 font-semibold">Fired?</th>
+                                      <th className="pr-3 py-1 font-semibold whitespace-nowrap">Branches</th>
                                       <th className="pr-3 py-1 font-semibold">Plan</th>
                                     </tr>
                                   </thead>
@@ -1056,6 +1047,17 @@ export default function MergeTesting() {
                                           <td className="pr-3 py-1 font-mono text-indigo-400">{bd.utp_trigger || bd.dtp_trigger || '—'}</td>
 
                                           <td className="pr-3 py-1 text-center">{fired ? <span className="px-1.5 py-0.5 rounded text-blue-300 font-bold" style={{ background: 'rgba(59,130,246,0.18)' }}>C{bd.rule_no}</span> : <span className="text-gray-600">—</span>}</td>
+                                          <td className="pr-3 py-1">
+                                            {fired && Array.isArray(bd.branches) && bd.branches.length > 0 ? (
+                                              <span className="flex flex-col gap-0.5" title={`Triggered Path: ${bd.triggered_path ?? '—'}`}>
+                                                {bd.branches.map((b, brIdx) => (
+                                                  <span key={brIdx} className={`whitespace-nowrap ${b.passed ? 'text-emerald-400 font-semibold' : 'text-gray-500'}`}>
+                                                    {b.passed ? '✓' : '✗'} {b.label}
+                                                  </span>
+                                                ))}
+                                              </span>
+                                            ) : <span className="text-gray-600">—</span>}
+                                          </td>
                                           <td className="pr-3 py-1">
                                             <button
                                               onClick={() => setTradingPlan({ ts: bd.plan_bar_ts, barDetail: bd, prevRows: rows.slice(Math.max(0, idx - 3), idx), currentRow: rows[idx] })}
