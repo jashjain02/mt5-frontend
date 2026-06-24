@@ -136,6 +136,19 @@ export const transformApiDataToTradingPlan = (apiRecord) => {
       prevClose: apiRecord.close,
     },
 
+    // New High / New Low / Action / D_Pat panel — additive, only populated
+    // when transformed from a Merge Testing bar_detail (undefined otherwise)
+    actionPanel: {
+      newHigh: apiRecord.new_high_target,
+      newLow: apiRecord.new_low_target,
+      action: apiRecord.fired === undefined ? null
+        : !apiRecord.fired ? 'MERGED'
+        : apiRecord.direction === 'ABOVE' ? 'BUY'
+        : apiRecord.direction === 'BELOW' ? 'SELL'
+        : 'HOLD',
+      dPat: apiRecord.current_d_pat ?? null,
+    },
+
     // Whether this is a forming (open) bar or a completed bar
     isForming: apiRecord.is_forming || false,
 

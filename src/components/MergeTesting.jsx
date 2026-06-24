@@ -64,6 +64,12 @@ function buildApiRecordFromBarDetail(bd) {
       col2_r2:   bd.prev_ref_col2_r2,
       col3_r1:   bd.prev_ref_col3_r1,
     },
+    // New High / New Low / Action / D_Pat panel — sourced from this bar's own evaluation result
+    new_high_target: bd.new_high_target,
+    new_low_target:  bd.new_low_target,
+    fired:           bd.fired,
+    direction:       bd.direction,
+    current_d_pat:   bd.d_pat,
   };
 }
 

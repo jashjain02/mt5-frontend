@@ -1031,7 +1031,7 @@ export const TradingPlanDiagram = ({ data }) => {
 
               {/* ===== SPACER ROW AFTER RC ===== */}
               <tr>
-                <td colSpan={9} className="h-6" style={{ background: 'rgba(255,255,255,0.04)' }} />
+                <td colSpan={9} className="h-10" style={{ background: 'rgba(255,255,255,0.04)' }} />
               </tr>
 
               {/* ===== CENTER MARKERS (UTP/DTP/MUTP/MDTP if in center) ===== */}
@@ -1040,71 +1040,101 @@ export const TradingPlanDiagram = ({ data }) => {
               {data.dtp?.section === 'center' && renderPriceMarker(data.dtp, 'dtp-center')}
               {data.mdtp?.section === 'center' && renderPriceMarker(data.mdtp, 'mdtp-center')}
 
-              {/* ===== SPACER ROW BEFORE MIDDLE SECTION ===== */}
-              <tr>
-                <td colSpan={9} className="h-6" style={{ background: 'rgba(255,255,255,0.04)' }} />
-              </tr>
-
               {/* ===== MIDDLE REFERENCE SECTION ===== */}
-              {/* Header row: ABS-RANGE (combined, cols 1-2), BUFFER (col 3), PREV CLOSE (col 4), empty (cols 5-7), BDP-WDP/2+2 (cols 8-9) */}
+              {/* Three compact panels on one centered row: ABS-RANGE/BUFFER/PREV CLOSE, the new
+                  NEW HIGH/NEW LOW/ACTION/D_PAT panel, and the existing BDP-WDP reference levels panel. */}
               <tr>
-                {/* ABS-RANGE combined header (spans 2 cols) */}
-                <td colSpan={2} className="bg-green-300 text-[10px] font-bold text-gray-900 p-1 text-center">ABS-RANGE</td>
-                <td className="bg-green-300 text-[10px] font-bold text-gray-900 p-1 text-center">BUFFER</td>
-                <td className="bg-green-300 text-[10px] font-bold text-gray-900 p-1 text-center">PREV CLOSE</td>
-                {/* Empty cols - adjusts based on number of reference columns */}
-                <td colSpan={5 - data.referenceLevels.headers.length} className="p-0.5" style={{ background: 'rgba(255,255,255,0.04)' }} />
-                {/* Reference headers (BDP-WDP, d_pat columns) */}
-                {data.referenceLevels.headers.map((header) => (
-                  <td key={header} className="bg-green-300 text-[10px] font-bold text-gray-900 p-1 text-center">
-                    {header}
-                  </td>
-                ))}
-              </tr>
+                <td colSpan={9} className="p-0">
+                  <div className="flex items-center justify-center gap-12 py-4">
+                    {/* ABS-RANGE / BUFFER / PREV CLOSE — narrowed to fit its content */}
+                    <table style={{ borderCollapse: 'collapse' }}>
+                      <tbody>
+                        <tr>
+                          <td colSpan={2} className="bg-green-300 text-[12px] font-bold text-gray-900 px-3 py-1.5 text-center whitespace-nowrap">ABS-RANGE</td>
+                          <td className="bg-green-300 text-[12px] font-bold text-gray-900 px-3 py-1.5 text-center whitespace-nowrap">BUFFER</td>
+                          <td className="bg-green-300 text-[12px] font-bold text-gray-900 px-3 py-1.5 text-center whitespace-nowrap">PREV CLOSE</td>
+                        </tr>
+                        <tr>
+                          <td colSpan={2} className="bg-green-100 text-[13px] font-mono font-bold text-center px-3 py-1.5 text-green-900">
+                            {formatPrice(data.middleValues?.absRange)}
+                          </td>
+                          <td className="bg-green-100 text-[13px] font-mono font-bold text-center px-3 py-1.5 text-green-900">
+                            {formatPrice(data.middleValues?.buffer)}
+                          </td>
+                          <td className="bg-green-100 text-[13px] font-mono font-bold text-center px-3 py-1.5 text-green-900">
+                            {formatPrice(data.middleValues?.prevClose)}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
 
-              {/* Values row - new values on left, first row of BDP-WDP/2+2 on right */}
-              <tr>
-                {/* ABS-RANGE combined value (spans 2 cols) */}
-                <td colSpan={2} className="bg-green-100 text-[11px] font-mono font-bold text-center p-1 text-green-900">
-                  {formatPrice(data.middleValues?.absRange)}
-                </td>
-                <td className="bg-green-100 text-[11px] font-mono font-bold text-center p-1 text-green-900">
-                  {formatPrice(data.middleValues?.buffer)}
-                </td>
-                <td className="bg-green-100 text-[11px] font-mono font-bold text-center p-1 text-green-900">
-                  {formatPrice(data.middleValues?.prevClose)}
-                </td>
-                {/* Empty cols - adjusts based on number of reference columns */}
-                <td colSpan={5 - data.referenceLevels.headers.length} className="p-0.5" style={{ background: 'rgba(255,255,255,0.04)' }} />
-                {/* First row values for reference columns */}
-                {data.referenceLevels.rows[0].map((val, i) => (
-                  <td
-                    key={`ref-0-${i}`}
-                    className="bg-green-100 text-[11px] font-mono font-bold text-center p-1 text-green-900"
-                  >
-                    {val !== null ? formatPrice(val) : ''}
-                  </td>
-                ))}
-              </tr>
+                    {/* NEW HIGH / NEW LOW / ACTION / D_PAT — compact 4-column panel */}
+                    <table style={{ borderCollapse: 'collapse' }}>
+                      <tbody>
+                        <tr>
+                          <td className="bg-green-300 text-[12px] font-bold text-gray-900 px-3 py-1.5 text-center whitespace-nowrap">NEW HIGH</td>
+                          <td className="bg-green-300 text-[12px] font-bold text-gray-900 px-3 py-1.5 text-center whitespace-nowrap">NEW LOW</td>
+                          <td className="bg-green-300 text-[12px] font-bold text-gray-900 px-3 py-1.5 text-center whitespace-nowrap">ACTION</td>
+                          <td className="bg-green-300 text-[12px] font-bold text-gray-900 px-3 py-1.5 text-center whitespace-nowrap">D_PAT</td>
+                        </tr>
+                        <tr>
+                          <td className="bg-green-100 text-[13px] font-mono font-bold text-center px-3 py-1.5 text-green-900">
+                            {formatPrice(data.actionPanel?.newHigh) || '-'}
+                          </td>
+                          <td className="bg-green-100 text-[13px] font-mono font-bold text-center px-3 py-1.5 text-green-900">
+                            {formatPrice(data.actionPanel?.newLow) || '-'}
+                          </td>
+                          <td
+                            className={`bg-green-100 text-[13px] font-mono font-bold text-center px-3 py-1.5 ${
+                              data.actionPanel?.action === 'BUY' ? 'text-emerald-700' :
+                              data.actionPanel?.action === 'SELL' ? 'text-red-700' :
+                              data.actionPanel?.action === 'HOLD' ? 'text-amber-700' :
+                              data.actionPanel?.action === 'MERGED' ? 'text-gray-500' :
+                              'text-green-900'
+                            }`}
+                          >
+                            {data.actionPanel?.action || '-'}
+                          </td>
+                          <td className="bg-green-100 text-[13px] font-mono font-bold text-center px-3 py-1.5 text-green-900">
+                            {data.actionPanel?.dPat || '-'}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
 
-              {/* Second row for BDP-WDP/2+2 only */}
-              <tr>
-                {/* Empty cols - adjusts based on number of reference columns */}
-                <td colSpan={9 - data.referenceLevels.headers.length} className="p-0.5" style={{ background: 'rgba(255,255,255,0.04)' }} />
-                {/* Second row values for reference columns */}
-                {data.referenceLevels.rows[1].map((val, i) => (
-                  <td
-                    key={`ref-1-${i}`}
-                    className="bg-green-100 text-[11px] font-mono font-bold text-center p-1 text-green-900"
-                  >
-                    {val !== null ? formatPrice(val) : ''}
-                  </td>
-                ))}
+                    {/* Existing BDP-WDP / pattern reference levels panel */}
+                    <table style={{ borderCollapse: 'collapse' }}>
+                      <tbody>
+                        <tr>
+                          {data.referenceLevels.headers.map((header) => (
+                            <td key={header} className="bg-green-300 text-[12px] font-bold text-gray-900 px-3 py-1.5 text-center whitespace-nowrap">
+                              {header}
+                            </td>
+                          ))}
+                        </tr>
+                        <tr>
+                          {data.referenceLevels.rows[0].map((val, i) => (
+                            <td key={`ref-0-${i}`} className="bg-green-100 text-[13px] font-mono font-bold text-center px-3 py-1.5 text-green-900">
+                              {val !== null ? formatPrice(val) : ''}
+                            </td>
+                          ))}
+                        </tr>
+                        <tr>
+                          {data.referenceLevels.rows[1].map((val, i) => (
+                            <td key={`ref-1-${i}`} className="bg-green-100 text-[13px] font-mono font-bold text-center px-3 py-1.5 text-green-900">
+                              {val !== null ? formatPrice(val) : ''}
+                            </td>
+                          ))}
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </td>
               </tr>
 
               {/* ===== SPACER ROW BEFORE FC ===== */}
               <tr>
-                <td colSpan={9} className="h-12" style={{ background: 'rgba(255,255,255,0.04)' }} />
+                <td colSpan={9} className="h-20" style={{ background: 'rgba(255,255,255,0.04)' }} />
               </tr>
 
               {/* ===== FC (Falling Channel) SECTION ===== */}
