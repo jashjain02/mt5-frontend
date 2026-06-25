@@ -393,6 +393,12 @@ class ApiService {
     });
   }
 
+  async getIntrabarEvents(sessionId, rowId) {
+    return this.request(`/merge-analysis/intrabar-events/${sessionId}/${rowId}`, {
+      method: 'GET',
+    });
+  }
+
   async getMergeSessions(options = {}) {
     const params = new URLSearchParams();
     if (options.symbol)    params.append('symbol',    options.symbol);

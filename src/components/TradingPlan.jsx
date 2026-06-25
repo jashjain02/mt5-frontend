@@ -856,8 +856,9 @@ const calculateMiddleValueRows = (rows, numColumns) => {
 };
 
 // The spreadsheet-style diagram
-export const TradingPlanDiagram = ({ data }) => {
+export const TradingPlanDiagram = ({ data, intrabarEvents }) => {
   const [mergedModal, setMergedModal] = useState({ open: false, bars: [], loading: false, error: null });
+  const [showDPatTooltip, setShowDPatTooltip] = useState(false);
 
   const handleOpenMergedModal = async () => {
     const barTs = data.merged_ohlc?.current_bar_ts;
@@ -1071,6 +1072,39 @@ export const TradingPlanDiagram = ({ data }) => {
                     {/* NEW HIGH / NEW LOW / ACTION / D_PAT — compact 4-column panel */}
                     <table style={{ borderCollapse: 'collapse' }}>
                       <tbody>
+                        {/* Intrabar (M1) info row — only the D_PAT column carries the last
+                            pattern transition's price; hover it for the full flip sequence. */}
+                        <tr>
+                          <td colSpan={3} />
+                          <td className="text-[10px] font-mono text-center text-amber-300 whitespace-nowrap relative">
+                            {(() => {
+                              const transitions = intrabarEvents?.dpat_transitions;
+                              if (!transitions?.length) return null;
+                              const last = transitions[transitions.length - 1];
+                              return (
+                                <span
+                                  className="cursor-help relative inline-block"
+                                  onMouseEnter={() => setShowDPatTooltip(true)}
+                                  onMouseLeave={() => setShowDPatTooltip(false)}
+                                >
+                                  →{last.to_pat} @{formatPrice(last.price)}
+                                  {showDPatTooltip && (
+                                    <div
+                                      className="absolute left-1/2 bottom-full mb-1 -translate-x-1/2 z-50 rounded shadow-lg whitespace-pre-line text-left"
+                                      style={{ background: 'rgba(17,24,39,0.97)', border: '1px solid rgba(255,255,255,0.12)', padding: '6px 8px', minWidth: '160px' }}
+                                    >
+                                      {transitions.map((t, i) => (
+                                        <div key={i} className="text-[10px] font-mono text-gray-200 whitespace-nowrap">
+                                          {t.from_pat}→{t.to_pat} @{formatPrice(t.price)}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </span>
+                              );
+                            })()}
+                          </td>
+                        </tr>
                         <tr>
                           <td className="bg-green-300 text-[12px] font-bold text-gray-900 px-3 py-1.5 text-center whitespace-nowrap">NEW HIGH</td>
                           <td className="bg-green-300 text-[12px] font-bold text-gray-900 px-3 py-1.5 text-center whitespace-nowrap">NEW LOW</td>
@@ -1078,10 +1112,22 @@ export const TradingPlanDiagram = ({ data }) => {
                           <td className="bg-green-300 text-[12px] font-bold text-gray-900 px-3 py-1.5 text-center whitespace-nowrap">D_PAT</td>
                         </tr>
                         <tr>
-                          <td className="bg-green-100 text-[13px] font-mono font-bold text-center px-3 py-1.5 text-green-900">
+                          <td
+                            className={`text-[13px] font-mono font-bold text-center px-3 py-1.5 ${
+                              intrabarEvents?.first_event === 'NH'
+                                ? 'bg-red-200 text-red-800 ring-2 ring-red-500'
+                                : 'bg-green-100 text-green-900'
+                            }`}
+                          >
                             {formatPrice(data.actionPanel?.newHigh) || '-'}
                           </td>
-                          <td className="bg-green-100 text-[13px] font-mono font-bold text-center px-3 py-1.5 text-green-900">
+                          <td
+                            className={`text-[13px] font-mono font-bold text-center px-3 py-1.5 ${
+                              intrabarEvents?.first_event === 'NL'
+                                ? 'bg-red-200 text-red-800 ring-2 ring-red-500'
+                                : 'bg-green-100 text-green-900'
+                            }`}
+                          >
                             {formatPrice(data.actionPanel?.newLow) || '-'}
                           </td>
                           <td

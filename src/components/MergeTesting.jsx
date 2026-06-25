@@ -123,10 +123,24 @@ const fmtNum = (v, decimals = 2) => {
 // ─── Views ───────────────────────────────────────────────────────────────────
 const VIEWS = { CONFIG: 'config', RESULTS: 'results', HISTORY: 'history' };
 
-function BatchTradingPlanModal({ ts, symbol, timeframe, barDetail, prevRows, currentRow, onClose }) {
+function BatchTradingPlanModal({ ts, symbol, timeframe, barDetail, prevRows, currentRow, sessionId, rowId, onClose }) {
   const [planData, setPlanData] = useState(null);
   const [loading, setLoading]  = useState(false);
   const [error, setError]      = useState(null);
+  const [intrabarEvents, setIntrabarEvents] = useState(null);
+
+  // Intrabar (M1) sequencing — which of NEW HIGH/NEW LOW cleared first within
+  // this bar, and the full d_pat flip history. Computed lazily on the backend
+  // and cached there, so reopening the same row's plan doesn't recompute it.
+  useEffect(() => {
+    setIntrabarEvents(null);
+    if (!sessionId || !rowId) return;
+    let cancelled = false;
+    api.getIntrabarEvents(sessionId, rowId)
+      .then(res => { if (!cancelled && res?.success) setIntrabarEvents(res); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [sessionId, rowId]);
 
   useEffect(() => {
     if (!ts) return;
@@ -261,7 +275,7 @@ function BatchTradingPlanModal({ ts, symbol, timeframe, barDetail, prevRows, cur
               )}
               {loading  && <p className="text-gray-400 text-sm text-center py-10">Loading…</p>}
               {error    && <p className="text-red-400 text-sm text-center py-10">{error}</p>}
-              {planData && <TradingPlanDiagram data={planData} />}
+              {planData && <TradingPlanDiagram data={planData} intrabarEvents={intrabarEvents} />}
             </div>
           </motion.div>
         </div>
@@ -977,6 +991,7 @@ export default function MergeTesting() {
                                 e.stopPropagation();
                                 setTradingPlan({
                                   ts: row.plan_bar_ts,
+                                  rowId: row.id,
                                   barDetail: row.bar_details?.[0] ?? null,
                                   prevRows: rows.slice(Math.max(0, idx - 3), idx),
                                   currentRow: row,
@@ -1066,7 +1081,7 @@ export default function MergeTesting() {
                                           </td>
                                           <td className="pr-3 py-1">
                                             <button
-                                              onClick={() => setTradingPlan({ ts: bd.plan_bar_ts, barDetail: bd, prevRows: rows.slice(Math.max(0, idx - 3), idx), currentRow: rows[idx] })}
+                                              onClick={() => setTradingPlan({ ts: bd.plan_bar_ts, rowId: rows[idx].id, barDetail: bd, prevRows: rows.slice(Math.max(0, idx - 3), idx), currentRow: rows[idx] })}
                                               style={{ background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.25)', color: '#10b981' }}
                                               className="rounded px-1.5 py-0.5 text-[10px] font-medium hover:bg-emerald-500/20 transition-colors"
                                             >
@@ -1216,6 +1231,8 @@ export default function MergeTesting() {
       barDetail={tradingPlan?.barDetail}
       prevRows={tradingPlan?.prevRows}
       currentRow={tradingPlan?.currentRow}
+      sessionId={session?.session_id}
+      rowId={tradingPlan?.rowId}
       onClose={() => setTradingPlan(null)}
     />
     </>
