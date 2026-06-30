@@ -258,9 +258,11 @@ function BatchTradingPlanModal({ ts, symbol, timeframe, barDetail, prevRows, cur
                                 ? <span className="px-1.5 py-0.5 rounded font-bold text-amber-300" style={{ background: 'rgba(245,158,11,0.18)' }}>{currentRow.bars_count}</span>
                                 : <span className="text-gray-500">1</span>}
                             </td>
-                            <td className="px-3 py-2 font-mono text-emerald-400">{fmtNum(currentRow.high)}</td>
-                            <td className="px-3 py-2 font-mono text-red-400">{fmtNum(currentRow.low)}</td>
-                            <td className="px-3 py-2 font-mono text-gray-200">{fmtNum(currentRow.close)}</td>
+                            {/* Current row shows the raw single-bar OHLC (from bar_details), not
+                                the merged group's accumulated OHLC, so it can be compared against it. */}
+                            <td className="px-3 py-2 font-mono text-emerald-400">{fmtNum(barDetail?.high ?? currentRow.high)}</td>
+                            <td className="px-3 py-2 font-mono text-red-400">{fmtNum(barDetail?.low ?? currentRow.low)}</td>
+                            <td className="px-3 py-2 font-mono text-gray-200">{fmtNum(barDetail?.close ?? currentRow.close)}</td>
                             <td className="px-3 py-2">
                               <span className="px-1.5 py-0.5 rounded font-mono text-gray-300" style={{ background: 'rgba(255,255,255,0.08)' }}>{currentRow.d_pat ?? '—'}</span>
                             </td>
